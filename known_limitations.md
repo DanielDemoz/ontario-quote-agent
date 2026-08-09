@@ -49,11 +49,11 @@ discovered live. That cross-check is listed as a next step.
 **Form-field mapping**
 The Claude-based field mapper is a best-effort layer, not a guarantee.
 It is deliberately conservative (defaults to `null`/no-fill on
-uncertain matches) but has not been tested against the six chosen
-sites' actual DOM structure, since this development environment has no
-outbound access to those sites. Verification and possible prompt
-tuning against each real site is expected as the first task at the
-event.
+uncertain matches). All six registry routes have now been attempted
+live; ThinkInsure and CAA were added in the follow-up session with
+evidence captured. Custom UI components (Sonnet province dropdown)
+and address/contact gates (CAA, ThinkInsure) remain the main
+automation limits in estimate_only mode.
 
 **Estimate-only mode default**
 By default the system runs in `estimate_only` mode, which avoids

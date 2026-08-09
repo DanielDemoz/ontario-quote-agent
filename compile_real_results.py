@@ -12,9 +12,7 @@ from pathlib import Path
 RESULTS_PATH = Path(__file__).parent / "results" / "results.json"
 METRICS_PATH = Path(__file__).parent / "results" / "metrics.json"
 
-# These are the real, evidence-backed outcomes from today's live runs.
-# Evidence file paths reference actual screenshots captured during
-# testing (see evidence/ folder).
+# Real, evidence-backed outcomes aligned with registry/seed_registry.json.
 results = [
     {
         "registry_id": "sonnet-direct-001",
@@ -65,24 +63,24 @@ results = [
         "source_url": "https://webquote.app.belairdirect.com/quote/car/1/info?language=en&province=on&f=c&intcid=homepage:quote-from-bundle-started-1v-1d-0h",
         "confidence": "low",
         "failure_reason": "",
-        "next_action": "Reached real multi-step quote form (step 1 of 3, native vehicle fields) after recovering from an anti-direct-link redirect. Did not complete within step budget - furthest progress of any route.",
+        "next_action": "Reached real multi-step quote form (step 1 of 3, native vehicle fields) after recovering from an anti-direct-link redirect. Did not complete within step budget - furthest progress of any direct route.",
     },
     {
         "registry_id": "thinkinsure-broker-001",
         "distinct_rate_source_id": "broker-thinkinsure",
-        "status": "unresolved",
+        "status": "callback_required",
         "annual_premium": None,
         "monthly_premium": None,
         "coverage_notes": "",
         "matches_benchmark": False,
         "quote_or_reference_id": "",
         "effective_date": "",
-        "evidence_timestamp": "",
-        "evidence_artifact_path": "",
-        "source_url": "",
+        "evidence_timestamp": "2026-08-09T17:21:45.723837+00:00",
+        "evidence_artifact_path": "evidence/thinkinsure-broker-001_final_20260809T172145645048Z.png",
+        "source_url": "https://www.thinkinsure.ca/quotes/auto",
         "confidence": "low",
-        "failure_reason": "Not yet attempted live within the build window.",
-        "next_action": "Expected outcome is callback_required or manual_handoff per Ontario broker disclosure requirements - not yet verified live.",
+        "failure_reason": "Broker lead-capture intake requires full name, email, and phone; footer states final pricing requires registered broker phone completion. reCAPTCHA present on submit step. No instant self-serve premium.",
+        "next_action": "Licensed broker callback at 1-855-550-5515; request full carrier list and quote outcomes per Ontario Insurance Act disclosure requirements.",
     },
     {
         "registry_id": "caa-affinity-001",
@@ -94,12 +92,12 @@ results = [
         "matches_benchmark": False,
         "quote_or_reference_id": "",
         "effective_date": "",
-        "evidence_timestamp": "",
-        "evidence_artifact_path": "",
-        "source_url": "",
+        "evidence_timestamp": "2026-08-09T17:23:09.503451+00:00",
+        "evidence_artifact_path": "evidence/caa-affinity-001_final_20260809T172309421847Z.png",
+        "source_url": "https://car-insurance.caasco.com/auto/intro",
         "confidence": "low",
-        "failure_reason": "Not yet attempted live within the build window.",
-        "next_action": "Expected to require CAA membership verification - not yet tested live.",
+        "failure_reason": "Reached CAA South Central Ontario step-1 Vehicle Details; garaging address required. Membership number not requested on this screen. Could not advance in estimate_only mode without address.",
+        "next_action": "Not affinity_restricted on evidence captured — address gate reached first. Membership eligibility may appear on later steps.",
     },
     {
         "registry_id": "facility-residual-001",
@@ -125,9 +123,11 @@ with open(RESULTS_PATH, "w", encoding="utf-8") as f:
     json.dump(results, f, indent=2)
 print(f"Wrote {len(results)} real results to {RESULTS_PATH}")
 
-# Compute the same metrics run_registry.py would, from this real data.
 verified_applicable = len(results)
-evidence_backed = sum(1 for r in results if r.get("evidence_timestamp") or r.get("status") == "manual_handoff")
+evidence_backed = sum(
+    1 for r in results
+    if r.get("evidence_timestamp") or r.get("status") == "manual_handoff"
+)
 comparable = sum(1 for r in results if r.get("status") == "quoted_comparable")
 
 metrics = {

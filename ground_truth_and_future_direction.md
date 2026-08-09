@@ -7,21 +7,24 @@ insurers exposed structured access the way the travel industry does.
 ## Part 1: What was actually done, on real ground
 
 Four routes were run against live production insurer and aggregator
-sites today, not simulated or mocked. Each ended in an honest,
-evidence-backed terminal status per the brief's status enum.
+sites during the initial build session, and two additional routes
+(ThinkInsure broker, CAA affinity) were verified live in a follow-up
+session. Each ended in an honest, evidence-backed terminal status per
+the brief's status enum.
 
 | Route | Channel | Status | What actually happened |
 |---|---|---|---|
 | Sonnet | Direct writer | `unresolved` | Reached the real province-selection screen. The dropdown is a custom (non-native) component rather than a standard HTML `<select>`, which our generic field-extraction logic could not reliably drive within the build window. Evidence captured at the point of failure. |
 | LowestRates.ca | Aggregator | `blocked` | Site returned an explicit "Sorry, you have been blocked" wall on the very first load, consistent with active bot-detection (Cloudflare/Akamai/PerimeterX-style protection). Correctly identified and logged rather than evaded, per the brief's explicit prohibition on bypassing bot controls. |
-| belairdirect | Direct writer | `unresolved` | Direct deep-linking to the quote subdomain triggered an anti-direct-link redirect back to the homepage. The agent detected this, clicked the real homepage "Car" call-to-action exactly as a human visitor would, and successfully reached the actual multi-step quote form (step 1 of 3, native YEAR/MAKE/MODEL vehicle fields visible). This is the furthest any route reached today. Evidence shows the genuine in-progress form. |
+| belairdirect | Direct writer | `unresolved` | Direct deep-linking to the quote subdomain triggered an anti-direct-link redirect back to the homepage. The agent detected this, clicked the real homepage "Car" call-to-action exactly as a human visitor would, and successfully reached the actual multi-step quote form (step 1 of 3, native YEAR/MAKE/MODEL vehicle fields visible). This is the furthest any direct route reached. Evidence shows the genuine in-progress form. |
+| ThinkInsure | Broker | `callback_required` | Live run reached `thinkinsure.ca/quotes/auto` — a broker lead-capture intake (postal code, start date, name, email, phone), not a self-serve instant premium. Footer discloses estimates only and broker phone completion for final pricing. Agent did not fabricate contact fields in estimate_only mode; Continue surfaced validation errors and a visible reCAPTCHA. Public phone route 1-855-550-5515 captured. |
+| CAA Insurance | Affinity | `unresolved` | National `caa.ca/insurance/car-insurance/` URL returns 404. Correct Ontario flow is `car-insurance.caasco.com/auto/intro`. Agent reached step-1 Vehicle Details (address combobox, effective date, eligibility checkboxes). Garaging address required; membership number not on this screen. Not logged as `affinity_restricted` because membership was not the blocking factor observed. |
 | Facility Association | Residual market | `manual_handoff` | Logged by design with no automation attempt. The residual market has no direct consumer quote path; it is reached only through a licensed intermediary. Attempting to fake a path here would misrepresent the market structure. |
 
 Every one of these outcomes is real: real URLs, real timestamps, real
-screenshots, no fabricated data. This matches four of the seven
-channel types the brief asks the market map to distinguish (direct
-×2, aggregator, residual), plus a fifth channel type (broker, via
-ThinkInsure) seeded in the registry but not yet attempted live.
+screenshots where captured, no fabricated data. This covers all six
+registry routes across direct (×2), aggregator, broker, affinity, and
+residual channel types.
 
 ### What this demonstrates technically
 
