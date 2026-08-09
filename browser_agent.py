@@ -160,7 +160,69 @@ async def find_homepage_cta(page: Page) -> str | None:
     return candidate
 
 
-async def try_custom_dropdown(page: Page, value: str) -> bool:
+async def find_dropdown_trigger(page: Page, near_label: str = "") -> dict | None:
+    """Find a custom dropdown trigger element using multiple signals,
+    not just literal 'Select' text. Checks ARIA roles, common class
+    name patterns, and placeholder-style text together."""
+    return await page.evaluate("""
+    (nearLabel) => {
+        const looksLikeDropdown = (el) => {
+            if (el.offsetParent === null) return false;
+            const txt = (el.innerText || '').trim().toLowerCase();
+            const role = el.getAttribute('role') || '';
+            const ariaHaspopup = el.getAttribute('aria-haspopup') || '';
+            const cls = (el.className || '').toString().toLowerCase();
+            return (
+                role === 'combobox' ||
+                ariaHaspopup === 'listbox' ||
+                cls.includes('dropdown') ||
+                cls.includes('select') ||
+                cls.includes('combobox') ||
+                cls.includes('listbox') ||
+                txt === 'select' ||
+                txt.startsWith('select') ||
+                (txt === '' && !!el.querySelector('svg, .chevron, .arrow'))
+            );
+        };
+
+        if (nearLabel) {
+            const labelEls = [...document.querySelectorAll('label, span, div, p, h1, h2, h3, h4')];
+            for (const lbl of labelEls) {
+                const lt = (lbl.innerText || '').trim().toLowerCase();
+                if (lt !== nearLabel.toLowerCase() && !lt.startsWith(nearLabel.toLowerCase())) continue;
+                if (lbl.offsetParent === null) continue;
+                const container = lbl.closest('div, section, fieldset, form') || lbl.parentElement;
+                if (!container) continue;
+                const local = [...container.querySelectorAll('div, button, span, [role="combobox"], [role="button"]')];
+                const matches = local.filter(looksLikeDropdown);
+                if (matches.length) {
+                    const el = matches[0];
+                    const r = el.getBoundingClientRect();
+                    return {x: r.x + r.width / 2, y: r.y + r.height / 2};
+                }
+            }
+        }
+
+        const candidates = [...document.querySelectorAll(
+            'div, button, span, [role="combobox"], [role="button"]'
+        )];
+        const matches = candidates.filter(el => {
+            if (!looksLikeDropdown(el)) return false;
+            if (nearLabel) {
+                const parentText = (el.closest('div,section,fieldset')?.innerText || '').toLowerCase();
+                return parentText.includes(nearLabel.toLowerCase());
+            }
+            return true;
+        });
+        if (matches.length === 0) return null;
+        const el = matches[matches.length - 1];
+        const r = el.getBoundingClientRect();
+        return {x: r.x + r.width / 2, y: r.y + r.height / 2};
+    }
+    """, near_label)
+
+
+async def try_custom_dropdown(page: Page, value: str, near_label: str = "") -> bool:
     """Fallback for custom-styled dropdown/combobox components that are
     NOT native <select> elements (common in React-built sites). Our
     extract_visible_fields() only finds real <select>/<input>/<textarea>
@@ -168,31 +230,38 @@ async def try_custom_dropdown(page: Page, value: str) -> bool:
     why some sites produce zero fields even though a form is clearly
     on screen.
 
-    Strategy: find any small clickable element whose exact visible text
-    is a placeholder like "Select", click it to open the option list,
-    then click whichever option's text matches the target value. If
-    multiple "Select" placeholders exist on the page (e.g. one behind
-    a modal), we prefer the last one in DOM order, since modals are
-    typically appended last to the document body."""
+    Uses find_dropdown_trigger() for broader detection (ARIA roles,
+    class names, chevron icons), then clicks the matching option."""
     try:
-        trigger_pos = await page.evaluate("""
-        () => {
-            const candidates = [...document.querySelectorAll('div, button, span')];
-            const matches = candidates.filter(el => {
-                const txt = (el.innerText || '').trim();
-                return (txt === 'Select' || txt.toLowerCase() === 'select province')
-                    && el.offsetParent !== null;
-            });
-            if (matches.length === 0) return null;
-            const el = matches[matches.length - 1];  // prefer topmost/last-appended (modal)
-            const r = el.getBoundingClientRect();
-            return {x: r.x + r.width / 2, y: r.y + r.height / 2};
-        }
-        """)
-        if not trigger_pos:
-            return False
-
-        await page.mouse.click(trigger_pos["x"], trigger_pos["y"])
+        trigger_pos = await find_dropdown_trigger(page, near_label)
+        if trigger_pos:
+            await page.mouse.click(trigger_pos["x"], trigger_pos["y"])
+        else:
+            clicked = False
+            if near_label:
+                label_loc = page.get_by_text(near_label, exact=True).first
+                if await label_loc.count() > 0:
+                    parent = label_loc.locator("xpath=ancestor::*[self::div or self::section or self::fieldset][1]")
+                    for loc in (
+                        parent.get_by_text(re.compile(r"select", re.I)).first,
+                        parent.locator("[role='combobox']").first,
+                        parent.locator("[aria-haspopup='listbox']").first,
+                    ):
+                        if await loc.count() > 0:
+                            await loc.click(timeout=3000)
+                            clicked = True
+                            break
+            if not clicked:
+                for loc in (
+                    page.get_by_text(re.compile(r"^select\.{0,3}$", re.I)).first,
+                    page.locator("[role='combobox']").first,
+                ):
+                    if await loc.count() > 0:
+                        await loc.click(timeout=3000)
+                        clicked = True
+                        break
+            if not clicked:
+                return False
         await page.wait_for_timeout(500)
 
         option_pos = await page.evaluate(f"""
@@ -201,7 +270,7 @@ async def try_custom_dropdown(page: Page, value: str) -> bool:
             const candidates = [...document.querySelectorAll('li, div, span, button, [role="option"]')];
             const matches = candidates.filter(el => {{
                 const txt = (el.innerText || '').trim().toLowerCase();
-                return txt === target && el.offsetParent !== null;
+                return (txt === target || txt.includes(target)) && el.offsetParent !== null;
             }});
             if (matches.length === 0) return null;
             const el = matches[matches.length - 1];
@@ -213,9 +282,179 @@ async def try_custom_dropdown(page: Page, value: str) -> bool:
             await page.mouse.click(option_pos["x"], option_pos["y"])
             await page.wait_for_timeout(500)
             return True
+
+        # Playwright fallback for option list items
+        for loc in (
+            page.get_by_role("option", name=str(value)).first,
+            page.get_by_text(str(value), exact=True).last,
+        ):
+            if await loc.count() > 0:
+                await loc.click(timeout=3000)
+                await page.wait_for_timeout(500)
+                return True
         return False
     except Exception:
         return False
+
+
+async def try_custom_checkbox(page: Page, label_text: str, desired_state: bool) -> bool:
+    """Find and set a custom-styled checkbox/toggle by matching its
+    associated label text, for widgets that aren't native <input
+    type=checkbox>. Only acts if the current state differs from
+    desired_state, to avoid accidentally un-checking something."""
+    try:
+        result = await page.evaluate("""
+        (labelText) => {
+            const candidates = [...document.querySelectorAll(
+                '[role="checkbox"], [role="switch"], .toggle, .checkbox-custom'
+            )];
+            for (const el of candidates) {
+                if (el.offsetParent === null) continue;
+                const container = el.closest('div,label,li') || el;
+                const txt = (container.innerText || '').toLowerCase();
+                if (txt.includes(labelText.toLowerCase())) {
+                    const checked = el.getAttribute('aria-checked') === 'true'
+                                   || el.classList.contains('checked')
+                                   || el.classList.contains('active');
+                    const r = el.getBoundingClientRect();
+                    return {x: r.x + r.width/2, y: r.y + r.height/2, checked};
+                }
+            }
+            return null;
+        }
+        """, label_text)
+        if not result:
+            return False
+        if result["checked"] != desired_state:
+            await page.mouse.click(result["x"], result["y"])
+            await page.wait_for_timeout(300)
+        return True
+    except Exception:
+        return False
+
+
+async def try_date_field(page: Page, applicant: Applicant) -> bool:
+    """Find date-related fields (native <input type=date> or
+    calendar-popup widgets) and fill with applicant.effective_date.
+    Specifically targets fields whose label suggests a policy/coverage
+    start date, since these commonly have no natural default."""
+    date_value = getattr(applicant, "effective_date", None)
+    if not date_value:
+        from datetime import date
+        date_value = date.today().isoformat()
+
+    parts = date_value.split("-")
+    display_formats = [date_value]
+    if len(parts) == 3:
+        y, m, d = parts
+        display_formats.extend([f"{m}/{d}/{y}", f"{d}/{m}/{y}"])
+
+    DATE_LABEL_JS = """
+    (label, placeholder, ariaLabel) => {
+        label = (label || '').toLowerCase();
+        placeholder = (placeholder || '').toLowerCase();
+        ariaLabel = (ariaLabel || '').toLowerCase();
+        const blob = label + ' ' + placeholder + ' ' + ariaLabel;
+        if (blob.includes('start date') || blob.includes('effective date') || blob.includes('policy date')) return true;
+        if (blob.includes('when') && (blob.includes('effect') || blob.includes('start') || blob.includes('policy') || blob.includes('coverage'))) return true;
+        if (blob.includes('date') && (blob.includes('start') || blob.includes('effective') || blob.includes('when'))) return true;
+        if (/mm\\/dd\\/yyyy|dd\\/mm\\/yyyy/.test(placeholder)) return true;
+        return false;
+    }
+    """
+
+    native_filled = await page.evaluate(f"""
+    (dateVal) => {{
+        const isDateLabel = {DATE_LABEL_JS};
+        for (const el of document.querySelectorAll('input[type="date"]')) {{
+            if (el.offsetParent === null) continue;
+            const label = (el.closest('div,label,section,fieldset')?.innerText || '');
+            if (isDateLabel(label, el.placeholder, el.getAttribute('aria-label'))) {{
+                el.value = dateVal;
+                el.dispatchEvent(new Event('input', {{bubbles: true}}));
+                el.dispatchEvent(new Event('change', {{bubbles: true}}));
+                return true;
+            }}
+        }}
+        return false;
+    }}
+    """, date_value)
+    if native_filled:
+        return True
+
+    # Prefer MM/DD/YYYY first when placeholder suggests it
+    ordered_formats = display_formats[:]
+    if len(parts) == 3:
+        y, m, d = parts
+        mmdd = f"{m}/{d}/{y}"
+        ordered_formats = [mmdd] + [f for f in ordered_formats if f != mmdd]
+
+    for fmt in ordered_formats:
+        text_filled = await page.evaluate(f"""
+        (dateVal) => {{
+            const isDateLabel = {DATE_LABEL_JS};
+            for (const el of document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio])')) {{
+                if (el.offsetParent === null || el.type === 'date') continue;
+                const label = (el.closest('div,label,section,fieldset')?.innerText || '');
+                const aria = el.getAttribute('aria-label') || '';
+                if (isDateLabel(label, el.placeholder, aria)) {{
+                    el.focus();
+                    el.click();
+                    el.value = '';
+                    el.value = dateVal;
+                    el.dispatchEvent(new Event('input', {{bubbles: true}}));
+                    el.dispatchEvent(new Event('change', {{bubbles: true}}));
+                    el.dispatchEvent(new Event('blur', {{bubbles: true}}));
+                    return el.value === dateVal || el.value.length > 0;
+                }}
+            }}
+            return false;
+        }}
+        """, fmt)
+        if text_filled:
+            return True
+
+    trigger = await page.evaluate(f"""
+    () => {{
+        const isDateLabel = {DATE_LABEL_JS};
+        for (const el of document.querySelectorAll('input, button, div[role="button"], span')) {{
+            if (el.offsetParent === null) continue;
+            const label = (el.closest('div,label,section,fieldset')?.innerText || '');
+            const aria = el.getAttribute('aria-label') || '';
+            if (isDateLabel(label, el.placeholder, aria)) {{
+                const r = el.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) {{
+                    return {{x: r.x + r.width/2, y: r.y + r.height/2}};
+                }}
+            }}
+        }}
+        return null;
+    }}
+    """)
+    if not trigger:
+        return False
+
+    await page.mouse.click(trigger["x"], trigger["y"])
+    await page.wait_for_timeout(500)
+    # Look for a "Today" quick-select button first, most calendar widgets have one
+    today_btn = await page.evaluate("""
+    () => {
+        const els = [...document.querySelectorAll('button, a, div')];
+        for (const el of els) {
+            const txt = (el.innerText || '').trim().toLowerCase();
+            if (txt === 'today' && el.offsetParent !== null) {
+                const r = el.getBoundingClientRect();
+                return {x: r.x + r.width/2, y: r.y + r.height/2};
+            }
+        }
+        return null;
+    }
+    """)
+    if today_btn:
+        await page.mouse.click(today_btn["x"], today_btn["y"])
+        await page.wait_for_timeout(300)
+        return True
+    return False
 
 
 async def try_address_autocomplete(page: Page, selector: str, address_text: str) -> bool:
@@ -347,6 +586,60 @@ async def mask_sensitive_before_screenshot(page: Page):
     """)
 
 
+def _step_log(registry_id: str, step: int, msg: str):
+    print(f"[{registry_id}] step {step}: {msg}")
+
+
+async def run_custom_widget_fallbacks(
+    page: Page, applicant: Applicant, record: MarketRecord, step: int
+) -> bool:
+    """Date pickers, custom checkboxes, and non-native dropdowns after native fill."""
+    did_something = False
+
+    if await try_date_field(page, applicant):
+        _step_log(record.registry_id, step, "date/start field filled")
+        did_something = True
+    else:
+        _step_log(record.registry_id, step, "no date/start field matched")
+
+    if getattr(applicant, "dcpd_included", None):
+        if await try_custom_checkbox(page, "DCPD", True):
+            _step_log(record.registry_id, step, "DCPD checkbox handled")
+            did_something = True
+        else:
+            _step_log(record.registry_id, step, "DCPD checkbox not found")
+
+    if getattr(applicant, "opcf_44r", None):
+        if await try_custom_checkbox(page, "family protection", True):
+            _step_log(record.registry_id, step, "family protection checkbox handled")
+            did_something = True
+        else:
+            _step_log(record.registry_id, step, "family protection checkbox not found")
+
+    if not getattr(applicant, "telematics_opt_in", False):
+        if await try_custom_checkbox(page, "telematics", False):
+            _step_log(record.registry_id, step, "telematics toggle handled (left off)")
+            did_something = True
+        else:
+            _step_log(record.registry_id, step, "telematics toggle not found")
+
+    if await try_custom_dropdown(page, applicant.province):
+        _step_log(record.registry_id, step, "custom dropdown handled (province)")
+        did_something = True
+
+    if applicant.model_year:
+        if await try_custom_dropdown(page, applicant.model_year, near_label="year"):
+            _step_log(record.registry_id, step, f"year dropdown handled ({applicant.model_year})")
+            did_something = True
+
+    if applicant.make:
+        if await try_custom_dropdown(page, applicant.make, near_label="make"):
+            _step_log(record.registry_id, step, f"make dropdown handled ({applicant.make})")
+            did_something = True
+
+    return did_something
+
+
 async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
     result = QuoteResult(
         registry_id=record.registry_id,
@@ -413,12 +706,11 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
                     mapping = await map_fields_with_claude(fields, applicant)
                     await fill_mapped_fields(page, mapping, fields, applicant)
                     did_something = True
-                else:
-                    # No native <select>/<input>/<textarea> found. Some sites
-                    # use styled div/button comboboxes instead of real
-                    # <select> tags, which are otherwise invisible to us.
-                    if await try_custom_dropdown(page, applicant.province):
-                        did_something = True
+                elif await try_custom_dropdown(page, applicant.province):
+                    did_something = True
+
+                if await run_custom_widget_fallbacks(page, applicant, record, step):
+                    did_something = True
 
                 btn_selector = await find_continue_button(page)
 
