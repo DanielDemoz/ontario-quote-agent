@@ -29,6 +29,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import asdict
 
+from formatting_utils import normalize_postal_code
+
 from playwright.async_api import async_playwright, Page
 import anthropic
 
@@ -216,6 +218,47 @@ async def try_custom_dropdown(page: Page, value: str) -> bool:
         return False
 
 
+async def try_address_autocomplete(page: Page, selector: str, address_text: str) -> bool:
+    """Fill an address-autocomplete field by typing character-by-character
+    (not .fill()) so the site's JS listener actually fires, then wait
+    for a suggestion dropdown and select the first result. Falls back
+    to a plain .fill() if no dropdown appears within the timeout,
+    since some 'address' fields are genuinely plain text inputs."""
+    try:
+        el = page.locator(selector).first
+        await el.click()
+        await el.fill("")  # clear first
+        await el.type(address_text, delay=60)  # character-by-character, triggers JS listeners
+        await page.wait_for_timeout(1200)  # let suggestions load
+
+        # Look for a visible suggestion list (common patterns: pac-container
+        # for Google Places, role="listbox", or a dropdown right below the input)
+        suggestion_visible = await page.evaluate("""
+        () => {
+            const candidates = document.querySelectorAll(
+                '.pac-container, [role="listbox"], .autocomplete-suggestions, .address-suggestions'
+            );
+            for (const c of candidates) {
+                if (c.offsetParent !== null && c.children.length > 0) return true;
+            }
+            return false;
+        }
+        """)
+
+        if suggestion_visible:
+            await page.keyboard.press("ArrowDown")
+            await page.wait_for_timeout(300)
+            await page.keyboard.press("Enter")
+            await page.wait_for_timeout(500)
+            return True
+
+        # No dropdown appeared - the typed text is still in the field,
+        # which is an acceptable fallback for a plain (non-autocomplete) input.
+        return False
+    except Exception:
+        return False
+
+
 async def map_fields_with_claude(fields: list[dict], applicant: Applicant) -> dict:
     """Returns {selector: intake_attr_name or None}."""
     if not fields:
@@ -267,6 +310,8 @@ async def fill_mapped_fields(page: Page, mapping: dict, fields: list[dict], appl
         value = applicant_dict.get(attr)
         if value in (None, ""):
             continue
+        if attr == "postal_code" and value:
+            value = normalize_postal_code(value)
         f = field_by_selector[selector]
         try:
             if f["tag"] == "select":
@@ -275,6 +320,10 @@ async def fill_mapped_fields(page: Page, mapping: dict, fields: list[dict], appl
                 if str(value).lower() in ("true", "1", "yes"):
                     await page.check(selector)
             else:
+                if attr == "street" and f["tag"] != "select":
+                    handled = await try_address_autocomplete(page, selector, str(value))
+                    if handled:
+                        continue
                 await page.fill(selector, str(value))
         except Exception:
             # Non-fatal: some fields resist automated fill (custom widgets,

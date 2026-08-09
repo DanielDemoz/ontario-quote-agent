@@ -1,7 +1,9 @@
 """
-Compiles today's REAL results (captured during live testing against
-production sites) into results/results.json, so generate_run_report.py
-and the coverage metrics reflect actual evidence, not synthetic data.
+Compiles results into results/results.json for the UI and run report.
+
+Evidence-backed rows (live runs with screenshots) are preserved exactly.
+Every other registry route gets a placeholder row from seed_registry.json
+so the Results tab stays in sync with the Market registry tab.
 
 Run once: python compile_real_results.py
 """
@@ -9,11 +11,13 @@ Run once: python compile_real_results.py
 import json
 from pathlib import Path
 
-RESULTS_PATH = Path(__file__).parent / "results" / "results.json"
-METRICS_PATH = Path(__file__).parent / "results" / "metrics.json"
+ROOT = Path(__file__).parent
+RESULTS_PATH = ROOT / "results" / "results.json"
+METRICS_PATH = ROOT / "results" / "metrics.json"
+REGISTRY_PATH = ROOT / "registry" / "seed_registry.json"
 
 # Real, evidence-backed outcomes aligned with registry/seed_registry.json.
-results = [
+EVIDENCE_RESULTS = [
     {
         "registry_id": "sonnet-direct-001",
         "distinct_rate_source_id": "definity-sonnet",
@@ -62,7 +66,7 @@ results = [
         "evidence_artifact_path": "evidence/belairdirect-001_final_20260809T160315728573Z.png",
         "source_url": "https://webquote.app.belairdirect.com/quote/car/1/info?language=en&province=on&f=c&intcid=homepage:quote-from-bundle-started-1v-1d-0h",
         "confidence": "low",
-        "failure_reason": "",
+        "failure_reason": "Reached step 1 of 3 vehicle form after homepage redirect recovery; did not complete within step budget.",
         "next_action": "Reached real multi-step quote form (step 1 of 3, native vehicle fields) after recovering from an anti-direct-link redirect. Did not complete within step budget - furthest progress of any direct route.",
     },
     {
@@ -118,10 +122,48 @@ results = [
     },
 ]
 
+
+def _placeholder_from_registry(record: dict) -> dict:
+    return {
+        "registry_id": record["registry_id"],
+        "distinct_rate_source_id": record["distinct_rate_source_id"],
+        "status": record.get("status", "unresolved"),
+        "annual_premium": None,
+        "monthly_premium": None,
+        "coverage_notes": "",
+        "matches_benchmark": False,
+        "quote_or_reference_id": "",
+        "effective_date": "",
+        "evidence_timestamp": "",
+        "evidence_artifact_path": record.get("evidence_url") or "",
+        "source_url": record.get("quote_url") or "",
+        "confidence": "low",
+        "failure_reason": "",
+        "next_action": record.get("automation_notes") or "Not yet attempted live.",
+    }
+
+
+def build_results() -> list[dict]:
+    evidence_by_id = {r["registry_id"]: r for r in EVIDENCE_RESULTS}
+    with open(REGISTRY_PATH, encoding="utf-8") as f:
+        registry = json.load(f)
+
+    results = []
+    for record in registry:
+        rid = record["registry_id"]
+        if rid in evidence_by_id:
+            results.append(evidence_by_id[rid])
+        else:
+            results.append(_placeholder_from_registry(record))
+    return results
+
+
+results = build_results()
+
 RESULTS_PATH.parent.mkdir(exist_ok=True)
 with open(RESULTS_PATH, "w", encoding="utf-8") as f:
     json.dump(results, f, indent=2)
-print(f"Wrote {len(results)} real results to {RESULTS_PATH}")
+print(f"Wrote {len(results)} results to {RESULTS_PATH} ({len(EVIDENCE_RESULTS)} with live evidence)")
 
 verified_applicable = len(results)
 evidence_backed = sum(

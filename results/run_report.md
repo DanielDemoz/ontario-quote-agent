@@ -1,6 +1,6 @@
-# Run Report — Ontario All-Quote Agent
+# Run Report â€” Ontario All-Quote Agent
 
-Generated: 2026-08-09T17:24:56.136997+00:00
+Generated: 2026-08-09T18:15:27.626349+00:00
 
 ## Coverage metrics
 
@@ -23,12 +23,12 @@ Generated: 2026-08-09T17:24:56.136997+00:00
 
 ## Gaps and unresolved routes
 
-- **Sonnet**: unresolved — Custom (non-native) dropdown component on province-selection screen could not be reliably driven within the build window.
-- **LowestRates.ca**: blocked — Active bot-detection block: "Sorry, you have been blocked. You are unable to access lowestrates.ca."
-- **belairdirect**: unresolved — 
-- **ThinkInsure**: callback_required — Broker lead-capture intake requires full name, email, and phone; footer states final pricing requires registered broker phone completion. reCAPTCHA present on submit step. No instant self-serve premium.
-- **CAA Insurance**: unresolved — Reached CAA South Central Ontario step-1 Vehicle Details; garaging address required. Membership number not requested on this screen. Could not advance in estimate_only mode without address.
-- **Facility Association**: manual_handoff — Residual market has no direct automatable path by design.
+- **Sonnet**: unresolved â€” Custom (non-native) dropdown component on province-selection screen could not be reliably driven within the build window.
+- **LowestRates.ca**: blocked â€” Active bot-detection block: "Sorry, you have been blocked. You are unable to access lowestrates.ca."
+- **belairdirect**: unresolved â€” Reached step 1 of 3 vehicle form after homepage redirect recovery; did not complete within step budget.
+- **ThinkInsure**: callback_required â€” Broker lead-capture intake requires full name, email, and phone; footer states final pricing requires registered broker phone completion. reCAPTCHA present on submit step. No instant self-serve premium.
+- **CAA Insurance**: unresolved â€” Reached CAA South Central Ontario step-1 Vehicle Details; garaging address required. Membership number not requested on this screen. Could not advance in estimate_only mode without address.
+- **Facility Association**: manual_handoff â€” Residual market has no direct automatable path by design.
 
 ## Errors
 

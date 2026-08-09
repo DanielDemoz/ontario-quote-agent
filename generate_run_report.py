@@ -63,9 +63,10 @@ def generate():
         for r in unresolved:
             r = redact_for_storage(r)
             reg = registry.get(r.get("registry_id", ""), {})
+            reason = r.get("failure_reason") or r.get("next_action") or "no reason logged"
             lines.append(
                 f"- **{reg.get('brand_or_program', r.get('registry_id'))}**: "
-                f"{r.get('status')} — {r.get('failure_reason', 'no reason logged')}"
+                f"{r.get('status')} — {reason}"
             )
     else:
         lines.append("None — all attempted routes reached a quoted or estimate outcome.")
@@ -79,7 +80,7 @@ def generate():
     else:
         lines.append("No unhandled errors recorded.")
 
-    OUTPUT_PATH.write_text("\n".join(lines))
+    OUTPUT_PATH.write_text("\n".join(lines), encoding="utf-8")
     print(f"Run report written to {OUTPUT_PATH}")
 
 

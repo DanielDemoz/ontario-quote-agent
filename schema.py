@@ -133,6 +133,7 @@ class Applicant:
     convictions_last_3y: str = "none"
 
     # Coverage benchmark (Section 6 — suggested demo benchmark)
+    effective_date: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
     liability_limit: str = "2000000"
     dcpd_included: bool = True
     collision_deductible: str = "1000"
