@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Sensitive by default — remove from here only if you're intentionally
+# committing redacted artifacts for submission.
+evidence/*.png
+logs/*.jsonl
+intake_config.py
+
+# Never commit raw results that might contain unredacted data before
+# you've reviewed them.
+results/raw_*.json
