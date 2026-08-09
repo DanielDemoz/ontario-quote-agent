@@ -3,6 +3,11 @@ __pycache__/
 *.pyc
 .env
 
+# Streamlit agent skills - environment-specific symlinks, not part of
+# the project itself (auto-created on first `streamlit run`).
+.agents/skills/developing-with-streamlit
+.claude/skills/developing-with-streamlit
+
 # Sensitive by default — remove from here only if you're intentionally
 # committing redacted artifacts for submission.
 evidence/*.png
