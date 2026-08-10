@@ -196,12 +196,12 @@
     "matches_benchmark": false,
     "quote_or_reference_id": "",
     "effective_date": "",
-    "evidence_timestamp": "",
-    "evidence_artifact_path": "",
-    "source_url": "https://www.aviva.ca/en/insurance/car-insurance/get-a-quote/",
+    "evidence_timestamp": "2026-08-10T20:52:45.646556+00:00",
+    "evidence_artifact_path": "evidence/aviva-direct-002_final_20260810T205245477223Z.png",
+    "source_url": "https://www.aviva.ca/en/direct/",
     "confidence": "low",
-    "failure_reason": "",
-    "next_action": "Appendix A Aviva group. Legal entities: Aviva General Insurance Company; Aviva Insurance Company of Canada; S&Y Insurance Company; Scottish & York Insurance Co. Limited; Traders General Insurance Company. Starting route: Aviva Direct. Deduplicate legacy entities against broker/RBC returns when live. Not yet attempted live."
+    "failure_reason": "Stuck on entry gate: language/province modal (English/Ontario) and cookie-consent banner both visible; did not reach embedded postal-code quote field within step budget.",
+    "next_action": "Dismiss Accept All Cookies then click Continue on province modal before filling postal code."
   },
   {
     "registry_id": "rbc-affinity-002",
@@ -236,6 +236,23 @@
     "confidence": "low",
     "failure_reason": "",
     "next_action": "Appendix A Co-op group. Legal entities: COSECO Insurance Company; CUMIS General Insurance Company; Co-operators General Insurance Company; The Sovereign General Insurance Company. Starting route: Co-operators web/agent. Affinity and specialty entities need validation. Not yet attempted live."
+  },
+  {
+    "registry_id": "duuo-cooperators-001",
+    "distinct_rate_source_id": "coop-duuo",
+    "status": "unresolved",
+    "annual_premium": null,
+    "monthly_premium": null,
+    "coverage_notes": "",
+    "matches_benchmark": false,
+    "quote_or_reference_id": "",
+    "effective_date": "",
+    "evidence_timestamp": "2026-08-10T20:52:29.350831+00:00",
+    "evidence_artifact_path": "evidence/duuo-cooperators-001_final_20260810T205229184544Z.png",
+    "source_url": "https://apps.duuo.cooperators.ca/app/eep-auto-drivervehicle-ui/?style=duuo-auto&locale=en-US#/display/672264d7f99fe60a5c262d78/?o=Duuo&referrer=Website_Auto",
+    "confidence": "low",
+    "failure_reason": "Launch URL redirected to Duuo auto SPA welcome screen with Start your quote CTA; agent did not click through to driver/vehicle form within step budget.",
+    "next_action": "Click Start your quote on welcome screen; dismiss optional chat widget if it intercepts clicks."
   },
   {
     "registry_id": "desjardins-direct-002",
@@ -281,29 +298,29 @@
     "matches_benchmark": false,
     "quote_or_reference_id": "",
     "effective_date": "",
-    "evidence_timestamp": "",
-    "evidence_artifact_path": "",
-    "source_url": "https://www.tdinsurance.com/products-services/auto-car-insurance/get-a-quote",
+    "evidence_timestamp": "2026-08-10T20:56:22.495235+00:00",
+    "evidence_artifact_path": "evidence/td-direct-002_step4_20260810T205619804284Z.png",
+    "source_url": "https://www.tdinsurance.com/quote/car/ontario",
     "confidence": "low",
-    "failure_reason": "",
-    "next_action": "Appendix A TD group. Legal entities: Primmum Insurance Company; Security National Insurance Company; TD General Insurance Company. TD online, phone and affinity routes per brief. Not yet attempted live."
+    "failure_reason": "Reached step 1/3 (Your vehicle) with Manual Input selected and native Vehicle year dropdown visible; run ended with transient browser crash before year could be filled.",
+    "next_action": "Retry: dismiss TD Insurance Chat modal, select vehicle year via native select, then continue to Savings and Driver details."
   },
   {
     "registry_id": "squareone-direct-002",
     "distinct_rate_source_id": "zurich-squareone",
-    "status": "unresolved",
+    "status": "manual_handoff",
     "annual_premium": null,
     "monthly_premium": null,
     "coverage_notes": "",
     "matches_benchmark": false,
     "quote_or_reference_id": "",
     "effective_date": "",
-    "evidence_timestamp": "",
-    "evidence_artifact_path": "",
-    "source_url": "https://www.squareone.ca/car-insurance/get-quote",
+    "evidence_timestamp": "2026-08-10T20:52:06.911907+00:00",
+    "evidence_artifact_path": "evidence/squareone-direct-002_blocked_20260810T205206919255Z.png",
+    "source_url": "https://www.squareone.ca/online-home-insurance-quote",
     "confidence": "low",
-    "failure_reason": "",
-    "next_action": "Appendix A Zurich group. Square One direct for Ontario car per brief citation [8]. Specialty Zurich broker routes may differ \u2014 validate underwriter on returned quote. Not yet attempted live."
+    "failure_reason": "Guardrail stopped on cookie/legal page text containing 'declaration' before CONFIRM or CAR QUOTE could be clicked; never entered 4-step quote flow.",
+    "next_action": "Click cookie CONFIRM, then CAR QUOTE or address field; note seeded URL resolves to bundled home/car marketing page not a dedicated auto-only quoter."
   },
   {
     "registry_id": "definity-broker-002",
