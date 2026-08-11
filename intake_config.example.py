@@ -34,6 +34,7 @@ def build_applicant() -> Applicant:
         years_continuously_insured="5",
         accidents_last_6y="none",
         convictions_last_3y="none",
+        confirmed_risk_fields=False,
         liability_limit="2000000",
         dcpd_included=True,
         collision_deductible="1000",

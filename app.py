@@ -1,5 +1,5 @@
 """
-Binder — Ontario auto insurance evidence dossier (Streamlit UI).
+Binder: Ontario auto insurance evidence dossier (Streamlit UI).
 
 Run: streamlit run app.py
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from formatting_utils import normalize_postal_code
+from formatting_utils import normalize_postal_code, sanitize_display_text
 from guardrails import validate_applicant_for_mode
 from intake_writer import load_existing_applicant, stamp_consent, write_intake_config
 from run_registry import run_all
@@ -98,8 +98,9 @@ def _defaults() -> dict:
         "primary_use": "commute",
         "current_insurer": "",
         "years_continuously_insured": "0",
-        "accidents_last_6y": "none",
-        "convictions_last_3y": "none",
+        "accidents_last_6y": "",
+        "convictions_last_3y": "",
+        "confirmed_risk_fields": False,
         "effective_date": date.today().isoformat(),
         "liability_limit": "2000000",
         "dcpd_included": True,
@@ -124,7 +125,7 @@ def _voice_enabled() -> bool:
 
 
 def _dictate_field(field_key: str, label: str):
-    """Mic button — updates session state and reruns."""
+    """Mic button: updates session state and reruns."""
     if st.button("🎤", key=f"mic_{field_key}", help=f"Dictate: {label}", use_container_width=True):
         with st.spinner("Listening…"):
             heard, err = listen_once()
@@ -208,8 +209,11 @@ def _build_payload(live: bool, consent: bool) -> dict:
         "primary_use": v.get("primary_use", "commute"),
         "current_insurer": v.get("current_insurer", "").strip(),
         "years_continuously_insured": v.get("years_continuously_insured", "").strip(),
-        "accidents_last_6y": v.get("accidents_last_6y", "none").strip() or "none",
-        "convictions_last_3y": v.get("convictions_last_3y", "none").strip() or "none",
+        "accidents_last_6y": v.get("accidents_last_6y", "").strip(),
+        "convictions_last_3y": v.get("convictions_last_3y", "").strip(),
+        "confirmed_risk_fields": bool(
+            v.get("accidents_last_6y", "").strip() and v.get("convictions_last_3y", "").strip()
+        ),
         "effective_date": v.get("effective_date", date.today().isoformat()).strip() or date.today().isoformat(),
         "liability_limit": v.get("liability_limit", "2000000"),
         "dcpd_included": True,
@@ -248,6 +252,7 @@ def _applicant_from_payload(payload: dict) -> Applicant:
         years_continuously_insured=payload["years_continuously_insured"],
         accidents_last_6y=payload["accidents_last_6y"],
         convictions_last_3y=payload["convictions_last_3y"],
+        confirmed_risk_fields=payload.get("confirmed_risk_fields", False),
         effective_date=payload["effective_date"],
         liability_limit=payload["liability_limit"],
         dcpd_included=payload["dcpd_included"],
@@ -456,7 +461,7 @@ def render_intake():
                 import intake_config
                 importlib.reload(intake_config)
                 st.session_state.intake_values = payload
-                st.success(f"Profile saved · mode: **{applicant.mode}** · file: `{path.name}`")
+                st.success(f"Profile saved. Mode: **{applicant.mode}**. File: `{path.name}`")
             except Exception as exc:
                 st.error(f"Could not save: {exc}")
 
@@ -523,7 +528,7 @@ def render_results():
         for entry in live_tested:
             badge = status_badge(entry.get("status", ""))
             with st.expander(
-                f"{entry.get('brand_or_program', entry['registry_id'])}  ·  "
+                f"{entry.get('brand_or_program', entry['registry_id'])}  |  "
                 f"{str(entry.get('status', '')).replace('_', ' ')}",
                 expanded=False,
             ):
@@ -538,7 +543,7 @@ def render_results():
                     st.caption("Screenshot not found locally. Path recorded in report.")
                 reason = entry.get("failure_reason") or entry.get("next_action")
                 if reason:
-                    st.markdown(f"**Outcome notes**  \n{reason}")
+                    st.markdown(f"**Outcome notes**  \n{sanitize_display_text(reason)}")
     else:
         st.info("No live-tested routes with evidence yet.")
 
@@ -552,6 +557,9 @@ def render_results():
         )
         if seed_only:
             seed_df = pd.DataFrame(seed_only)
+            if "automation_notes" in seed_df.columns:
+                seed_df = seed_df.copy()
+                seed_df["automation_notes"] = seed_df["automation_notes"].map(sanitize_display_text)
             seed_display = [
                 "brand_or_program", "distribution_type", "legal_underwriter", "automation_notes",
             ]
@@ -605,7 +613,7 @@ def render_run():
         from intake_config import build_applicant
         applicant = build_applicant()
         validate_applicant_for_mode(applicant)
-        st.success(f"Profile validated · mode: **{applicant.mode}**")
+        st.success(f"Profile validated. Mode: **{applicant.mode}**")
     except Exception as exc:
         st.error(f"Complete and save your **Intake** profile first: {exc}")
         section_close()

@@ -56,6 +56,7 @@ def build_applicant() -> Applicant:
         years_continuously_insured={data.get("years_continuously_insured", "")!r},
         accidents_last_6y={data.get("accidents_last_6y", "none")!r},
         convictions_last_3y={data.get("convictions_last_3y", "none")!r},
+        confirmed_risk_fields={data.get("confirmed_risk_fields", False)!r},
 
         effective_date={data.get("effective_date") or date.today().isoformat()!r},
         liability_limit={data.get("liability_limit", "2000000")!r},

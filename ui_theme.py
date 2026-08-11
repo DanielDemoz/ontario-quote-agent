@@ -1,4 +1,4 @@
-"""Binder — manila/ink field-dossier design system for Streamlit.
+"""Binder: manila/ink field-dossier design system for Streamlit.
 
 Global styles live in `.streamlit/style.css` (auto-loaded by Streamlit).
 This module provides HTML component helpers only.
@@ -11,10 +11,15 @@ def inject_theme():
 
 def binder_hero(mode: str):
     import streamlit as st
+    mode_label = mode.replace("_", " ").title()
     st.markdown(
         f"""
         <div class="binder-hero">
-            <div class="case-number">CASE FILE — ONTARIO AUTO INSURANCE — {mode.upper()}</div>
+            <div class="case-meta">
+                <span class="case-tag">Case file</span>
+                <span class="case-tag">Ontario auto insurance</span>
+                <span class="case-tag case-mode">{mode_label}</span>
+            </div>
             <h1>Binder</h1>
             <p style="font-family:'IBM Plex Sans',sans-serif; max-width:600px;">
                 One intake. Every reachable rate. Evidence for every result.
@@ -73,7 +78,7 @@ def render_stamp(status: str) -> str:
 
 
 def status_badge(status: str) -> str:
-    """Alias for expander headers — uses ink stamps."""
+    """Alias for expander headers; uses ink stamps."""
     return render_stamp(status)
 
 

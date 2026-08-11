@@ -39,7 +39,7 @@ async def run_route_isolated(record: MarketRecord, applicant: Applicant) -> Quot
         )
         return result
     except asyncio.TimeoutError:
-        print(f"[{record.registry_id}] TIMED OUT after {ROUTE_TIMEOUT_SECONDS}s — logging as unreachable")
+        print(f"[{record.registry_id}] TIMED OUT after {ROUTE_TIMEOUT_SECONDS}s. Logging as unreachable.")
         return QuoteResult(
             registry_id=record.registry_id,
             distinct_rate_source_id=record.distinct_rate_source_id,
@@ -87,7 +87,7 @@ async def run_one(record: MarketRecord, applicant: Applicant, retry: bool = True
 
     result = await run_route_isolated(record, applicant)
     if retry and result.status == Status.UNREACHABLE:
-        print(f"[{record.registry_id}] unreachable — one bounded retry")
+        print(f"[{record.registry_id}] unreachable. One bounded retry.")
         result = await run_route_isolated(record, applicant)
     return result
 

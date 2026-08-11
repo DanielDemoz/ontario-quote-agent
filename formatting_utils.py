@@ -5,6 +5,15 @@ strictly — currently just Canadian postal codes.
 
 import re
 
+_EM_DASH = "\u2014"
+
+
+def sanitize_display_text(text: str | None) -> str:
+    """Replace em dashes with colons for UI and report copy."""
+    if not text:
+        return ""
+    return text.replace(f" {_EM_DASH} ", ": ").replace(_EM_DASH, ": ")
+
 
 def normalize_postal_code(raw: str) -> str:
     """Normalize to 'A1A 1A1' format. If the input doesn't contain

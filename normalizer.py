@@ -186,7 +186,7 @@ def assess_coverage_comparability(text: str, applicant: Applicant) -> CoverageAs
         notes = "All benchmark coverage elements detected in quote page text."
         confidence = Confidence.HIGH
     elif len(gaps) <= 2:
-        notes = "Partial benchmark match — manual verification recommended. Gaps: " + "; ".join(gaps)
+        notes = "Partial benchmark match. Manual verification recommended. Gaps: " + "; ".join(gaps)
         confidence = Confidence.MEDIUM
     else:
         notes = "Coverage assumptions differ from benchmark or could not be read from page. Gaps: " + "; ".join(gaps)
@@ -229,20 +229,20 @@ def normalize_quote_result(
         result.monthly_premium = None
         result.quote_or_reference_id = ""
         result.status = Status.UNRESOLVED
-        result.next_action = "Reached funnel/landing page — premium figures are marketing copy, not a live quote."
+        result.next_action = "Reached funnel/landing page. Premium figures are marketing copy, not a live quote."
         return result
 
     if result.annual_premium or result.monthly_premium:
         if coverage.matches_benchmark:
             result.status = Status.QUOTED_COMPARABLE
-            result.next_action = "Premium and benchmark coverage detected — spot-check evidence before binding."
+            result.next_action = "Premium and benchmark coverage detected. Spot-check evidence before binding."
         else:
             result.status = Status.QUOTED_NON_COMPARABLE
             result.next_action = (
-                "Premium found but coverage may differ from benchmark — "
+                "Premium found but coverage may differ from benchmark. "
                 + (coverage.gaps[0] if coverage.gaps else "verify manually")
             )
     elif result.status == Status.UNRESOLVED:
-        result.next_action = result.next_action or "No premium detected on final page — review evidence manually."
+        result.next_action = result.next_action or "No premium detected on final page. Review evidence manually."
 
     return result

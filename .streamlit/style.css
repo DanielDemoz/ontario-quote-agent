@@ -47,6 +47,25 @@ code, .binder-mono, .stDataFrame, .stMetric {
     color: var(--navy);
     text-transform: uppercase;
 }
+.binder-hero .case-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 0.35rem;
+}
+.binder-hero .case-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--navy);
+    border: 1px solid var(--navy);
+    padding: 0.2rem 0.55rem;
+    background: rgba(255, 255, 255, 0.35);
+}
+.binder-hero .case-mode {
+    font-weight: 600;
+}
 .binder-hero h1 {
     font-size: 2.2rem;
     margin: 0.3rem 0;

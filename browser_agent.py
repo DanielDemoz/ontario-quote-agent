@@ -34,7 +34,7 @@ from formatting_utils import normalize_postal_code
 from playwright.async_api import async_playwright, Page
 import anthropic
 
-from schema import MarketRecord, QuoteResult, Status, Applicant
+from schema import MarketRecord, QuoteResult, Status, Applicant, RISK_RELEVANT_FIELDS
 from guardrails import check_page_text, GuardrailStop, redact_for_storage
 from normalizer import normalize_quote_result
 from site_hooks import get_hook
@@ -48,6 +48,14 @@ MAX_STEPS = 8          # bounded-attempt policy: don't loop forever on one route
 NAV_TIMEOUT_MS = 20000
 
 client = anthropic.Anthropic()
+
+
+class RiskFieldUnconfirmedError(Exception):
+    """Raised when a form asks a risk-relevant question (accidents,
+    convictions, insurance history) that the applicant profile has
+    not explicitly confirmed. Never guess on these - stop the route
+    instead."""
+    pass
 
 # Field names we NEVER auto-fill even if Claude maps them ? these must
 # stop the flow and go to manual_handoff instead. Second layer of
@@ -548,6 +556,13 @@ async def fill_mapped_fields(page: Page, mapping: dict, fields: list[dict], appl
     for selector, attr in mapping.items():
         if not attr or attr in NEVER_AUTOFILL or selector not in field_by_selector:
             continue
+
+        if attr in RISK_RELEVANT_FIELDS and not applicant_dict.get("confirmed_risk_fields", False):
+            raise RiskFieldUnconfirmedError(
+                f"Form asks for '{attr}' but this was never explicitly "
+                f"confirmed by the user during intake. Refusing to guess."
+            )
+
         value = applicant_dict.get(attr)
         if value in (None, ""):
             continue
@@ -776,6 +791,22 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
                     block_shot = EVIDENCE_DIR / f"{record.registry_id}_blocked_{_ts()}.png"
                     await page.screenshot(path=str(block_shot))
                     result.evidence_artifact_path = str(block_shot)
+                except Exception:
+                    pass
+            except RiskFieldUnconfirmedError as e:
+                result.status = Status.MANUAL_HANDOFF
+                result.failure_reason = str(e)
+                result.next_action = (
+                    "Re-run interactive_intake.py and explicitly confirm accident/"
+                    "conviction/insurance history, then retry this route."
+                )
+                result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
+                result.source_url = page.url if page else record.quote_url
+                try:
+                    await mask_sensitive_before_screenshot(page)
+                    handoff_shot = EVIDENCE_DIR / f"{record.registry_id}_risk_unconfirmed_{_ts()}.png"
+                    await page.screenshot(path=str(handoff_shot))
+                    result.evidence_artifact_path = str(handoff_shot)
                 except Exception:
                     pass
             except Exception as e:

@@ -59,6 +59,30 @@ underlying rate source reached through two different brands is not
 double-counted. The Streamlit app displays results sorted and
 filterable by status, with evidence available per result.
 
+## Quote normalization pipeline
+
+Every route's output passes through the same explicit stages before
+it can be compared against another route's result:
+
+1. **Extraction** - raw form fields and page text captured from the
+   live site (`extract_visible_fields()`, page text via
+   `safe_inner_text()`).
+2. **Mapping** - Claude maps each extracted field to the canonical
+   intake schema (`map_fields_with_claude()`), never inventing a
+   value not present in the applicant's confirmed profile.
+3. **Normalization** - results are recorded against the common
+   `QuoteResult` schema (`schema.py`), so every route's outcome uses
+   identical field names and the same status enum, regardless of how
+   differently each insurer's site is built.
+4. **Comparison** - the Streamlit dashboard and run report read this
+   normalized data uniformly, allowing routes to be filtered, sorted,
+   and compared without any route-specific logic in the display
+   layer.
+
+This separation is what allows a new route to be added to the
+registry and immediately participate in comparison, without needing
+any change to the normalization or comparison code.
+
 ## Human checkpoints
 
 Per the brief's required-behaviour table:

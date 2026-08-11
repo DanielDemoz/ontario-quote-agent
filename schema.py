@@ -57,6 +57,18 @@ class Confidence(str, Enum):
     LOW = "low"        # estimate or unresolved coverage diff
 
 
+# Fields where an unconfirmed default value is dangerous - the brief
+# warns that inaccurate risk information can void a policy or count
+# as misrepresentation. These must be explicitly confirmed by the
+# user during intake, never silently assumed.
+RISK_RELEVANT_FIELDS = {
+    "accidents_last_6y",
+    "convictions_last_3y",
+    "current_insurer",
+    "years_continuously_insured",
+}
+
+
 # ---------------------------------------------------------------------
 # Market registry record (Section 3 + Appendix B)
 # ---------------------------------------------------------------------
@@ -131,6 +143,7 @@ class Applicant:
     years_continuously_insured: str = ""
     accidents_last_6y: str = "none"
     convictions_last_3y: str = "none"
+    confirmed_risk_fields: bool = False
 
     # Coverage benchmark (Section 6 — suggested demo benchmark)
     effective_date: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))

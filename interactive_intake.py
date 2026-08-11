@@ -139,8 +139,13 @@ def main():
     print("\n--- Insurance history ---")
     current_insurer = ask("Current insurer (leave blank if none)")
     years_insured = ask("Years continuously insured", default="0")
-    accidents = ask("Accidents/claims in last 6 years", default="none")
-    convictions = ask("Convictions in last 3 years", default="none")
+    print("\nThese answers affect your coverage validity - please confirm explicitly rather than skipping.")
+    accidents = ask("Accidents/claims in last 6 years (type 'none' if genuinely none)")
+    while not accidents.strip():
+        accidents = ask("Please answer explicitly - type 'none' if there are none")
+    convictions = ask("Convictions in last 3 years (type 'none' if genuinely none)")
+    while not convictions.strip():
+        convictions = ask("Please answer explicitly - type 'none' if there are none")
 
     print("\n--- Coverage preferences ---")
     effective_date = ask("Coverage start date (YYYY-MM-DD)", default=date.today().isoformat())
@@ -206,6 +211,7 @@ def build_applicant() -> Applicant:
         years_continuously_insured={years_insured!r},
         accidents_last_6y={accidents!r},
         convictions_last_3y={convictions!r},
+        confirmed_risk_fields={True!r},
 
         effective_date={effective_date!r},
         liability_limit={liability!r},

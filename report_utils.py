@@ -86,4 +86,4 @@ def format_evidence_link(entry: dict) -> str:
     if entry.get("failure_reason") or entry.get("next_action"):
         return "see outcome notes in dashboard"
 
-    return "—"
+    return "n/a"
