@@ -20,17 +20,26 @@ LOGS_DIR.mkdir(exist_ok=True)
 
 
 def build_callback_script(record: MarketRecord, applicant: Applicant) -> str:
-    """Opening script aligned with the brief's suggested call pattern."""
+    """Opening script aligned with the brief's suggested call pattern.
+    Must disclose automation up front - this is non-negotiable per
+    the brief's Section 2 voice-agent requirements."""
     name = applicant.legal_name or "the applicant"
     vehicle = " ".join(
         p for p in [applicant.model_year, applicant.make, applicant.model] if p
     ) or "their vehicle"
+    try:
+        liability = int(applicant.liability_limit)
+    except (TypeError, ValueError):
+        liability = 2_000_000
     return (
-        f"Hello, I'm calling on behalf of {name} with their consent to obtain "
-        f"an Ontario auto insurance quote for a {vehicle}. "
-        f"I'm looking for standard personal-use coverage comparable to "
-        f"${int(applicant.liability_limit):,} liability, DCPD included, "
-        f"collision/comprehensive ${applicant.collision_deductible} deductibles"
+        f"Hello, I am an automated assistant acting for {name} to request an "
+        f"Ontario private-passenger auto insurance quote. Is it okay to "
+        f"continue with an automated assistant? The applicant is available "
+        f"if you need verification or consent. "
+        f"I am looking for standard personal-use coverage for a {vehicle}, "
+        f"comparable to ${liability:,} liability, "
+        f"DCPD included, collision/comprehensive "
+        f"${applicant.collision_deductible} deductibles"
         f"{', with OPCF 44R' if applicant.opcf_44r else ''}. "
         f"Could you provide a quote or reference number I can document? "
         f"I am not authorizing bind or payment on this call."

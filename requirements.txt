@@ -2,4 +2,5 @@ playwright>=1.62
 anthropic>=0.121
 pandas>=2.0
 streamlit>=1.61
-# Optional: pip install twilio  (for voice_agent outbound calls)
+# Optional: pip install twilio (for voice_agent outbound calls)
+# Optional: pip install SpeechRecognition pyaudio (for voice_input microphone dictation)

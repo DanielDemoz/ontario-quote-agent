@@ -70,6 +70,15 @@ def _resolve_artifact(path: str) -> Path | None:
     return candidate if candidate.exists() else None
 
 
+def _select_index(options: list, value, default: str | None = None) -> int:
+    """Safe selectbox index when stored intake values may be stale or invalid."""
+    fallback = default if default in options else options[0]
+    try:
+        return options.index(value)
+    except ValueError:
+        return options.index(fallback)
+
+
 def _defaults() -> dict:
     existing = load_existing_applicant()
     if existing:
@@ -397,7 +406,7 @@ def render_intake():
     v["primary_use"] = st.selectbox(
         "Primary use",
         ["commute", "pleasure", "business"],
-        index=["commute", "pleasure", "business"].index(v.get("primary_use", "commute")),
+        index=_select_index(["commute", "pleasure", "business"], v.get("primary_use"), "commute"),
     )
 
     # --- History ---
@@ -418,7 +427,7 @@ def render_intake():
         v["liability_limit"] = st.selectbox(
             "Third-party liability limit",
             ["1000000", "2000000"],
-            index=0 if v.get("liability_limit") == "1000000" else 1,
+            index=_select_index(["1000000", "2000000"], v.get("liability_limit"), "2000000"),
             format_func=lambda x: f"${int(x):,}",
         )
     with c2:
