@@ -554,7 +554,13 @@ async def fill_mapped_fields(page: Page, mapping: dict, fields: list[dict], appl
         f = field_by_selector[selector]
         try:
             if f["tag"] == "select":
-                await page.select_option(selector, label=str(value))
+                try:
+                    await page.select_option(selector, label=str(value))
+                except Exception:
+                    # Not a real native <select>, or the option label didn't match —
+                    # fall back to custom-dropdown handling instead of crashing.
+                    near = {"model_year": "year", "make": "make", "province": ""}.get(attr, "")
+                    await try_custom_dropdown(page, str(value), near_label=near)
             elif f["type"] in ("checkbox", "radio"):
                 if str(value).lower() in ("true", "1", "yes"):
                     await page.check(selector)
@@ -654,132 +660,124 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
         _log(record, result)
         return result
 
-    async with async_playwright() as p:
-        # Running visibly (not headless) for two honest reasons: (1) some
-        # bot-detection services specifically flag the headless Chromium
-        # signature, so a normal visible browser session may be treated
-        # more like ordinary traffic, and (2) it lets the operator watch
-        # the run happen in real time. This is a configuration choice,
-        # not fingerprint spoofing - we do not hide automation flags or
-        # alter navigator properties, which would cross into bypassing
-        # bot controls (not permitted per the brief).
-        browser = await p.chromium.launch(headless=False, slow_mo=150)
-        page = await browser.new_page()
+    browser = None
+    page = None
 
-        try:
-            await page.goto(record.quote_url, timeout=NAV_TIMEOUT_MS, wait_until="domcontentloaded")
-            # Single-page apps (hash routes like #/quoting/...) render content
-            # via JS after the initial load. Give the app a moment to paint,
-            # then wait for network to go quiet as a proxy for "done rendering".
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=False, slow_mo=150)
+            page = await browser.new_page()
+
             try:
-                await page.wait_for_load_state("networkidle", timeout=8000)
-            except Exception:
-                pass  # some sites never go fully idle (polling, analytics) - proceed anyway
-            await page.wait_for_timeout(1500)  # small buffer for late-mounting components
-
-            # Detect anti-direct-linking redirects: if we asked for a deep
-            # quote-flow URL but landed somewhere else (e.g. the bare
-            # homepage), a real visitor would click through from there
-            # instead of being blocked. Do the same, once, before starting
-            # the normal step loop.
-            landed_url = page.url
-            requested_path = record.quote_url.split("//", 1)[-1].split("/", 1)
-            requested_domain = requested_path[0] if requested_path else ""
-            if requested_domain not in landed_url:
-                cta_pos = await find_homepage_cta(page)
-                if cta_pos:
-                    await page.mouse.click(cta_pos["x"], cta_pos["y"])
-                    try:
-                        await page.wait_for_load_state("networkidle", timeout=8000)
-                    except Exception:
-                        pass
-                    await page.wait_for_timeout(1500)
-
-            for step in range(MAX_STEPS):
-                page_text = await safe_inner_text(page)
-                check_page_text(page_text)  # raises GuardrailStop if blocked/declaration/payment
-
-                fields = await extract_visible_fields(page)
-                did_something = False
-
-                if fields:
-                    mapping = await map_fields_with_claude(fields, applicant)
-                    await fill_mapped_fields(page, mapping, fields, applicant)
-                    did_something = True
-                elif await try_custom_dropdown(page, applicant.province):
-                    did_something = True
-
-                if await run_custom_widget_fallbacks(page, applicant, record, step):
-                    did_something = True
-
-                btn_selector = await find_continue_button(page)
-
-                if not did_something and not btn_selector:
-                    break  # nothing left we can do on this page
-
-                await mask_sensitive_before_screenshot(page)
-                shot = EVIDENCE_DIR / f"{record.registry_id}_step{step}_{_ts()}.png"
-                await page.screenshot(path=str(shot))
-                result.evidence_artifact_path = str(shot)
-
-                if not btn_selector:
-                    break  # filled something but no way to proceed - stop here
-
+                await page.goto(record.quote_url, timeout=NAV_TIMEOUT_MS, wait_until="domcontentloaded")
                 try:
-                    await page.click(btn_selector, timeout=5000)
-                    # SPA hash-route changes don't trigger a full navigation,
-                    # so wait for the network to settle instead, then a short
-                    # buffer for the next step's components to mount.
+                    await page.wait_for_load_state("networkidle", timeout=8000)
+                except Exception:
+                    pass
+                await page.wait_for_timeout(1500)
+
+                landed_url = page.url
+                requested_path = record.quote_url.split("//", 1)[-1].split("/", 1)
+                requested_domain = requested_path[0] if requested_path else ""
+                if requested_domain not in landed_url:
+                    cta_pos = await find_homepage_cta(page)
+                    if cta_pos:
+                        await page.mouse.click(cta_pos["x"], cta_pos["y"])
+                        try:
+                            await page.wait_for_load_state("networkidle", timeout=8000)
+                        except Exception:
+                            pass
+                        await page.wait_for_timeout(1500)
+
+                for step in range(MAX_STEPS):
+                    page_text = await safe_inner_text(page)
+                    check_page_text(page_text)
+
+                    fields = await extract_visible_fields(page)
+                    did_something = False
+
+                    if fields:
+                        mapping = await map_fields_with_claude(fields, applicant)
+                        await fill_mapped_fields(page, mapping, fields, applicant)
+                        did_something = True
+                    elif await try_custom_dropdown(page, applicant.province):
+                        did_something = True
+
+                    if await run_custom_widget_fallbacks(page, applicant, record, step):
+                        did_something = True
+
+                    btn_selector = await find_continue_button(page)
+
+                    if not did_something and not btn_selector:
+                        break
+
+                    await mask_sensitive_before_screenshot(page)
+                    shot = EVIDENCE_DIR / f"{record.registry_id}_step{step}_{_ts()}.png"
+                    await page.screenshot(path=str(shot))
+                    result.evidence_artifact_path = str(shot)
+
+                    if not btn_selector:
+                        break
+
                     try:
-                        await page.wait_for_load_state("networkidle", timeout=6000)
+                        await page.click(btn_selector, timeout=5000)
+                        try:
+                            await page.wait_for_load_state("networkidle", timeout=6000)
+                        except Exception:
+                            pass
+                        await page.wait_for_timeout(1000)
+                    except Exception:
+                        break
+
+                final_text = await safe_inner_text(page)
+                check_page_text(final_text)
+
+                premium = _extract_premium(final_text)
+                await mask_sensitive_before_screenshot(page)
+                final_shot = EVIDENCE_DIR / f"{record.registry_id}_final_{_ts()}.png"
+                await page.screenshot(path=str(final_shot))
+                result.evidence_artifact_path = str(final_shot)
+                result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
+                result.source_url = page.url
+
+                if premium:
+                    result.annual_premium = premium
+                    result.status = Status.QUOTED_NON_COMPARABLE
+                    result.next_action = "Verify coverage assumptions match benchmark before marking quoted_comparable."
+                else:
+                    result.status = Status.UNRESOLVED
+                    result.next_action = "No premium detected on final page reached — review evidence manually."
+
+            except asyncio.CancelledError:
+                raise
+            except GuardrailStop as gs:
+                result.status = Status(gs.status)
+                result.failure_reason = gs.reason
+                result.next_action = "Logged per guardrail; do not retry automatically."
+                result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
+                result.source_url = page.url if page else record.quote_url
+                try:
+                    await mask_sensitive_before_screenshot(page)
+                    block_shot = EVIDENCE_DIR / f"{record.registry_id}_blocked_{_ts()}.png"
+                    await page.screenshot(path=str(block_shot))
+                    result.evidence_artifact_path = str(block_shot)
+                except Exception:
+                    pass
+            except Exception as e:
+                result.status = Status.UNREACHABLE
+                result.failure_reason = f"{type(e).__name__}: {e}"
+                result.next_action = "One bounded retry permitted for transient errors only."
+                result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
+                result.source_url = page.url if page else record.quote_url
+            finally:
+                if browser is not None:
+                    try:
+                        await browser.close()
                     except Exception:
                         pass
-                    await page.wait_for_timeout(1000)
-                except Exception:
-                    break
-
-            final_text = await safe_inner_text(page)
-            check_page_text(final_text)
-
-            premium = _extract_premium(final_text)
-            await mask_sensitive_before_screenshot(page)
-            final_shot = EVIDENCE_DIR / f"{record.registry_id}_final_{_ts()}.png"
-            await page.screenshot(path=str(final_shot))
-            result.evidence_artifact_path = str(final_shot)
-            result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
-            result.source_url = page.url
-
-            if premium:
-                result.annual_premium = premium
-                result.status = Status.QUOTED_NON_COMPARABLE
-                result.next_action = "Verify coverage assumptions match benchmark before marking quoted_comparable."
-            else:
-                result.status = Status.UNRESOLVED
-                result.next_action = "No premium detected on final page reached — review evidence manually."
-
-        except GuardrailStop as gs:
-            result.status = Status(gs.status)
-            result.failure_reason = gs.reason
-            result.next_action = "Logged per guardrail; do not retry automatically."
-            result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
-            result.source_url = page.url if page else record.quote_url
-            try:
-                await mask_sensitive_before_screenshot(page)
-                block_shot = EVIDENCE_DIR / f"{record.registry_id}_blocked_{_ts()}.png"
-                await page.screenshot(path=str(block_shot))
-                result.evidence_artifact_path = str(block_shot)
-            except Exception:
-                pass  # page may already be in a bad state; don't let evidence capture mask the real error
-
-        except Exception as e:
-            result.status = Status.UNREACHABLE
-            result.failure_reason = f"{type(e).__name__}: {e}"
-            result.next_action = "One bounded retry permitted for transient errors only."
-            result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
-            result.source_url = record.quote_url
-
-        finally:
-            await browser.close()
+                    browser = None
+    except asyncio.CancelledError:
+        raise
 
     _log(record, result)
     return result

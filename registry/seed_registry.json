@@ -244,12 +244,12 @@
     "requires_vin": true,
     "requires_membership": false,
     "requires_human": false,
-    "automation_notes": "Appendix A Aviva group. Legal entities: Aviva General Insurance Company; Aviva Insurance Company of Canada; S&Y Insurance Company; Scottish & York Insurance Co. Limited; Traders General Insurance Company. Starting route: Aviva Direct. Deduplicate legacy entities against broker/RBC returns when live. Not yet attempted live. Entry point has an embedded postal code field, not a separate quote-start page. Confirmed required fields upfront: driver name(s), DOB, licence class + G1/G2/G dates, driving history; vehicle year/make/model, owner details, purchase/lease date, use type. Hard limit: max 2 vehicles/2 drivers online. A language/province selection gate appears on entry \u2014 same pattern as Sonnet's province modal, handle with existing find_dropdown_trigger/find_homepage_cta logic. UPDATE (2026-08-10): No premium detected on final page reached \u2014 review evidence manually.",
+    "automation_notes": "Appendix A Aviva group. Legal entities: Aviva General Insurance Company; Aviva Insurance Company of Canada; S&Y Insurance Company; Scottish & York Insurance Co. Limited; Traders General Insurance Company. Starting route: Aviva Direct. Deduplicate legacy entities against broker/RBC returns when live. Not yet attempted live. Entry point has an embedded postal code field, not a separate quote-start page. Confirmed required fields upfront: driver name(s), DOB, licence class + G1/G2/G dates, driving history; vehicle year/make/model, owner details, purchase/lease date, use type. Hard limit: max 2 vehicles/2 drivers online. A language/province selection gate appears on entry \u2014 same pattern as Sonnet's province modal, handle with existing find_dropdown_trigger/find_homepage_cta logic. LIVE (2026-08-10): Stuck on language/province modal + cookie banner; postal-code field not reached.",
     "status": "unresolved",
-    "evidence_url": "C:\\Users\\asbda\\Downloads\\ontario-quote-agent-github\\evidence\\aviva-direct-002_final_20260810T205245477223Z.png",
+    "evidence_url": "evidence/aviva-direct-002_final_20260810T205245477223Z.png",
     "source_citation": "Brief Appendix A: Aviva group; citation [14]",
     "distinct_rate_source_id": "aviva-direct",
-    "last_verified_at": "2026-08-10T20:56:22Z"
+    "last_verified_at": "2026-08-10T20:56:00Z"
   },
   {
     "registry_id": "rbc-affinity-002",
@@ -307,12 +307,12 @@
     "requires_vin": true,
     "requires_membership": false,
     "requires_human": false,
-    "automation_notes": "Confirmed live: Duuo offers real self-serve online auto insurance purchase in Ontario (explicitly listed as an eligible province), underwritten by Co-operators General Insurance Company. This is a genuinely direct digital flow, distinct from the parent cooperators.ca site which is agent-network-first. Not yet attempted live. UPDATE (2026-08-10): No premium detected on final page reached \u2014 review evidence manually.",
+    "automation_notes": "Confirmed live: Duuo offers real self-serve online auto insurance purchase in Ontario (explicitly listed as an eligible province), underwritten by Co-operators General Insurance Company. This is a genuinely direct digital flow, distinct from the parent cooperators.ca site which is agent-network-first. Not yet attempted live. LIVE (2026-08-10): Reached Duuo welcome SPA; stalled on Start your quote CTA.",
     "status": "unresolved",
-    "evidence_url": "C:\\Users\\asbda\\Downloads\\ontario-quote-agent-github\\evidence\\duuo-cooperators-001_final_20260810T205229184544Z.png",
+    "evidence_url": "evidence/duuo-cooperators-001_final_20260810T205229184544Z.png",
     "source_citation": "Verified live via duuo.ca/auto-insurance/ on reconnaissance pass",
     "distinct_rate_source_id": "coop-duuo",
-    "last_verified_at": "2026-08-10T20:56:22Z"
+    "last_verified_at": "2026-08-10T20:56:00Z"
   },
   {
     "registry_id": "desjardins-direct-002",
@@ -370,12 +370,12 @@
     "requires_vin": true,
     "requires_membership": false,
     "requires_human": false,
-    "automation_notes": "Appendix A TD group. Legal entities: Primmum Insurance Company; Security National Insurance Company; TD General Insurance Company. TD online, phone and affinity routes per brief. Not yet attempted live. Confirmed 3-step flow disclosed directly on the page: (1) Your vehicle, (2) Savings, (3) Driver details. Offers a VIN-prefill option as an alternative to manual vehicle entry \u2014 if VIN is available in the applicant profile, try the VIN path first as it may reduce the number of fields needed. Vehicle year field appears to be a genuine native HTML dropdown (explicit year list visible in page content), which is good news \u2014 try native select_option() before falling back to custom-dropdown handling. UPDATE (2026-08-10): One bounded retry permitted for transient errors only.",
-    "status": "unreachable",
-    "evidence_url": "C:\\Users\\asbda\\Downloads\\ontario-quote-agent-github\\evidence\\td-direct-002_step4_20260810T205619804284Z.png",
+    "automation_notes": "Appendix A TD group. Legal entities: Primmum Insurance Company; Security National Insurance Company; TD General Insurance Company. TD online, phone and affinity routes per brief. Not yet attempted live. Confirmed 3-step flow disclosed directly on the page: (1) Your vehicle, (2) Savings, (3) Driver details. Offers a VIN-prefill option as an alternative to manual vehicle entry \u2014 if VIN is available in the applicant profile, try the VIN path first as it may reduce the number of fields needed. Vehicle year field appears to be a genuine native HTML dropdown (explicit year list visible in page content), which is good news \u2014 try native select_option() before falling back to custom-dropdown handling. LIVE (2026-08-10): Reached step 1/3 vehicle year dropdown; browser closed before fill completed.",
+    "status": "unresolved",
+    "evidence_url": "evidence/td-direct-002_step4_20260810T205619804284Z.png",
     "source_citation": "Brief Appendix A: TD group; citation [16]",
     "distinct_rate_source_id": "td-general",
-    "last_verified_at": "2026-08-10T20:56:22Z"
+    "last_verified_at": "2026-08-10T20:56:00Z"
   },
   {
     "registry_id": "squareone-direct-002",
@@ -391,12 +391,12 @@
     "requires_vin": false,
     "requires_membership": false,
     "requires_human": false,
-    "automation_notes": "Appendix A Zurich group. Square One direct for Ontario car per brief citation [8]. Specialty Zurich broker routes may differ \u2014 validate underwriter on returned quote. Not yet attempted live. Confirmed 4-step flow per live page content: (1) drivers, (2) vehicle, (3) limits/deductibles/coverage, (4) premium. Cookie-consent modal appears on entry, similar pattern to Sonnet's \u2014 handle via existing find_homepage_cta or a dedicated cookie-consent click. Legal underwriter confirmed as Zurich Insurance Company Ltd (Canadian Branch) for Ontario auto \u2014 matches existing registry insurer_group 'Zurich'. UPDATE (2026-08-10): Logged per guardrail; do not retry automatically.",
+    "automation_notes": "Appendix A Zurich group. Square One direct for Ontario car per brief citation [8]. Specialty Zurich broker routes may differ \u2014 validate underwriter on returned quote. Not yet attempted live. Confirmed 4-step flow per live page content: (1) drivers, (2) vehicle, (3) limits/deductibles/coverage, (4) premium. Cookie-consent modal appears on entry, similar pattern to Sonnet's \u2014 handle via existing find_homepage_cta or a dedicated cookie-consent click. Legal underwriter confirmed as Zurich Insurance Company Ltd (Canadian Branch) for Ontario auto \u2014 matches existing registry insurer_group 'Zurich'. LIVE (2026-08-10): Guardrail stopped on cookie/legal page containing declaration before CONFIRM or CAR QUOTE; never entered quote flow.",
     "status": "manual_handoff",
-    "evidence_url": "C:\\Users\\asbda\\Downloads\\ontario-quote-agent-github\\evidence\\squareone-direct-002_blocked_20260810T205206919255Z.png",
+    "evidence_url": "evidence/squareone-direct-002_blocked_20260810T205206919255Z.png",
     "source_citation": "Brief Appendix A: Zurich group; citation [8]",
     "distinct_rate_source_id": "zurich-squareone",
-    "last_verified_at": "2026-08-10T20:56:22Z"
+    "last_verified_at": "2026-08-10T20:56:00Z"
   },
   {
     "registry_id": "definity-broker-002",

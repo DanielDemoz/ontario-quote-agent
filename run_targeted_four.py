@@ -10,9 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from schema import MarketRecord, Status
-from browser_agent import run_route
 from guardrails import validate_applicant_for_mode
-from run_registry import build_applicant, compute_metrics
+from run_registry import build_applicant, compute_metrics, run_route_isolated
 
 ROOT = Path(__file__).parent
 REGISTRY_PATH = ROOT / "registry" / "seed_registry.json"
@@ -48,7 +47,7 @@ async def main():
             continue
         rec = MarketRecord(**by_id[rid])
         print(f"\n=== {rid} ({rec.brand_or_program}) ===")
-        result = await run_route(rec, applicant)
+        result = await run_route_isolated(rec, applicant)
         d = asdict(result)
         d["status"] = _status_str(result)
         d["confidence"] = result.confidence.value if hasattr(result.confidence, "value") else "low"
