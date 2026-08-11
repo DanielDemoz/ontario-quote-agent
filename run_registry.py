@@ -1,11 +1,16 @@
 """
 Orchestrator. Loads the market registry, runs each route through the
-browser agent, writes normalized results, and computes the coverage
-metrics defined in Section 7 of the brief.
+browser agent or voice agent, writes normalized results, and computes
+coverage metrics.
 
-Run: python run_registry.py
+Run:
+  python run_registry.py
+  python run_registry.py --scope full --live-only
 """
 
+from __future__ import annotations
+
+import argparse
 import asyncio
 import json
 from datetime import datetime, timezone
@@ -15,17 +20,18 @@ from dataclasses import asdict
 from schema import MarketRecord, Applicant, Status, QuoteResult
 from browser_agent import run_route
 from guardrails import validate_applicant_for_mode
+from voice_agent import run_voice_route, should_use_voice_route
 
-REGISTRY_PATH = Path(__file__).parent / "registry" / "seed_registry.json"
+REGISTRY_DIR = Path(__file__).parent / "registry"
+SEED_PATH = REGISTRY_DIR / "seed_registry.json"
+FULL_PATH = REGISTRY_DIR / "full_registry.json"
 RESULTS_PATH = Path(__file__).parent / "results" / "results.json"
 
 ROUTE_TIMEOUT_SECONDS = 120  # hard cutoff per route
 
 
 async def run_route_isolated(record: MarketRecord, applicant: Applicant) -> QuoteResult:
-    """Run one route with a hard timeout and full exception isolation.
-    A crash or hang in this route must never propagate and must never
-    block subsequent routes from running."""
+    """Run one route with a hard timeout and full exception isolation."""
     try:
         result = await asyncio.wait_for(
             run_route(record, applicant),
@@ -38,12 +44,12 @@ async def run_route_isolated(record: MarketRecord, applicant: Applicant) -> Quot
             registry_id=record.registry_id,
             distinct_rate_source_id=record.distinct_rate_source_id,
             status=Status.UNREACHABLE,
-            failure_reason=f"Route did not complete within {ROUTE_TIMEOUT_SECONDS}s hard timeout — likely a hang, not a normal stop.",
-            next_action="Investigate whether this route needs a longer timeout or has a specific stuck step to fix.",
+            failure_reason=f"Route did not complete within {ROUTE_TIMEOUT_SECONDS}s hard timeout.",
+            next_action="Investigate whether this route needs a longer timeout or has a stuck step.",
             evidence_timestamp=datetime.now(timezone.utc).isoformat(),
         )
     except Exception as e:
-        print(f"[{record.registry_id}] CRASHED: {type(e).__name__}: {e} — logging as unreachable, continuing to next route")
+        print(f"[{record.registry_id}] CRASHED: {type(e).__name__}: {e}")
         return QuoteResult(
             registry_id=record.registry_id,
             distinct_rate_source_id=record.distinct_rate_source_id,
@@ -54,21 +60,45 @@ async def run_route_isolated(record: MarketRecord, applicant: Applicant) -> Quot
         )
 
 
-def load_registry() -> list[MarketRecord]:
-    with open(REGISTRY_PATH) as f:
+def load_registry(scope: str = "seed") -> list[MarketRecord]:
+    if scope == "full":
+        if not FULL_PATH.exists():
+            from build_registry import main as build_main
+            import sys
+            sys.argv = ["build_registry.py", "--merge"]
+            build_main()
+        path = FULL_PATH
+    else:
+        path = SEED_PATH
+
+    with open(path, encoding="utf-8") as f:
         raw = json.load(f)
     return [MarketRecord(**r) for r in raw]
 
 
 def build_applicant() -> Applicant:
-    # TODO at event: fill in your real or hypothetical profile here,
-    # or load from a separate untracked config file (see intake_config.py).
     from intake_config import build_applicant as _build
     return _build()
 
 
-async def run_all():
-    registry = load_registry()
+async def run_one(record: MarketRecord, applicant: Applicant, retry: bool = True) -> QuoteResult:
+    if should_use_voice_route(record):
+        return run_voice_route(record, applicant)
+
+    result = await run_route_isolated(record, applicant)
+    if retry and result.status == Status.UNREACHABLE:
+        print(f"[{record.registry_id}] unreachable — one bounded retry")
+        result = await run_route_isolated(record, applicant)
+    return result
+
+
+async def run_all(scope: str = "seed", live_only: bool = False, limit: int | None = None):
+    registry = load_registry(scope)
+    if live_only:
+        registry = [r for r in registry if r.quote_url.strip()]
+    if limit:
+        registry = registry[:limit]
+
     applicant = build_applicant()
     validate_applicant_for_mode(applicant)
 
@@ -76,21 +106,25 @@ async def run_all():
     seen_rate_sources = set()
 
     for record in registry:
-        # Deduplication: if we've already resolved this distinct rate
-        # source through another brand/route, mark it duplicate instead
-        # of re-running.
         if record.distinct_rate_source_id in seen_rate_sources:
             print(f"[{record.registry_id}] duplicate rate source, skipping live attempt")
+            results.append({
+                "registry_id": record.registry_id,
+                "distinct_rate_source_id": record.distinct_rate_source_id,
+                "status": Status.DUPLICATE_RATE_SOURCE.value,
+                "failure_reason": "Rate source already resolved via another brand/route.",
+                "next_action": "See primary route result.",
+            })
             continue
 
         print(f"[{record.registry_id}] running route: {record.brand_or_program} ...")
-        result = await run_route_isolated(record, applicant)
+        result = await run_one(record, applicant)
         results.append(asdict(result))
         seen_rate_sources.add(record.distinct_rate_source_id)
         print(f"[{record.registry_id}] -> {result.status}")
 
     RESULTS_PATH.parent.mkdir(exist_ok=True)
-    with open(RESULTS_PATH, "w") as f:
+    with open(RESULTS_PATH, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, default=str)
 
     metrics = compute_metrics(registry, results)
@@ -98,13 +132,17 @@ async def run_all():
     for k, v in metrics.items():
         print(f"{k}: {v}")
 
-    with open(Path(__file__).parent / "results" / "metrics.json", "w") as f:
+    metrics_path = Path(__file__).parent / "results" / "metrics.json"
+    with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 
 
 def compute_metrics(registry: list[MarketRecord], results: list[dict]) -> dict:
     verified_applicable = len(registry)
-    evidence_backed = sum(1 for r in results if r.get("evidence_timestamp") or r.get("status") == "manual_handoff")
+    evidence_backed = sum(
+        1 for r in results
+        if r.get("evidence_timestamp") or r.get("status") in ("manual_handoff", "callback_required")
+    )
     comparable = sum(1 for r in results if r.get("status") == "quoted_comparable")
 
     return {
@@ -116,5 +154,14 @@ def compute_metrics(registry: list[MarketRecord], results: list[dict]) -> dict:
     }
 
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--scope", choices=["seed", "full"], default="seed")
+    parser.add_argument("--live-only", action="store_true", help="Skip registry entries with no quote_url")
+    parser.add_argument("--limit", type=int, default=None, help="Max routes to run (debug)")
+    args = parser.parse_args()
+    asyncio.run(run_all(scope=args.scope, live_only=args.live_only, limit=args.limit))
+
+
 if __name__ == "__main__":
-    asyncio.run(run_all())
+    main()

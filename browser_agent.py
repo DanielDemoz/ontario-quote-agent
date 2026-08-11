@@ -14,7 +14,7 @@ it has no live internet access), this agent:
   6. looks for a "next / continue / get quote" button, clicks it
   7. repeats, up to MAX_STEPS, re-checking guardrails on every new page
   8. stops the moment guardrails trips, a captcha appears, or no more
-     recognizable form is found — and returns whatever result that
+     recognizable form is found ? and returns whatever result that
      implies (blocked / manual_handoff / unresolved / quoted)
 
 This is slower than hardcoded selectors but works across sites you
@@ -36,6 +36,8 @@ import anthropic
 
 from schema import MarketRecord, QuoteResult, Status, Applicant
 from guardrails import check_page_text, GuardrailStop, redact_for_storage
+from normalizer import normalize_quote_result
+from site_hooks import get_hook
 
 EVIDENCE_DIR = Path(__file__).parent / "evidence"
 EVIDENCE_DIR.mkdir(exist_ok=True)
@@ -47,7 +49,7 @@ NAV_TIMEOUT_MS = 20000
 
 client = anthropic.Anthropic()
 
-# Field names we NEVER auto-fill even if Claude maps them — these must
+# Field names we NEVER auto-fill even if Claude maps them ? these must
 # stop the flow and go to manual_handoff instead. Second layer of
 # protection on top of guardrails.check_page_text().
 NEVER_AUTOFILL = {"licence_number_confirm", "signature", "payment_card", "cvv"}
@@ -226,7 +228,7 @@ async def try_custom_dropdown(page: Page, value: str, near_label: str = "") -> b
     """Fallback for custom-styled dropdown/combobox components that are
     NOT native <select> elements (common in React-built sites). Our
     extract_visible_fields() only finds real <select>/<input>/<textarea>
-    tags, so a styled div/button dropdown is invisible to it — this is
+    tags, so a styled div/button dropdown is invisible to it ? this is
     why some sites produce zero fields even though a form is clearly
     on screen.
 
@@ -513,7 +515,7 @@ name, or null if there is no safe match.
 Rules:
 - Never map anything that looks like a signature, attestation/declaration
   checkbox, payment/card field, or an identity-verification-only field
-  (e.g. "confirm licence number", "SIN") — map those to null.
+  (e.g. "confirm licence number", "SIN") ? map those to null.
 - If a field looks like a required consent checkbox to proceed (not a
   declaration of truthfulness, just "I agree to terms to get a quote"),
   map it to null too; a human should decide, don't auto-check it.
@@ -557,7 +559,7 @@ async def fill_mapped_fields(page: Page, mapping: dict, fields: list[dict], appl
                 try:
                     await page.select_option(selector, label=str(value))
                 except Exception:
-                    # Not a real native <select>, or the option label didn't match —
+                    # Not a real native <select>, or the option label didn't match ?
                     # fall back to custom-dropdown handling instead of crashing.
                     near = {"model_year": "year", "make": "make", "province": ""}.get(attr, "")
                     await try_custom_dropdown(page, str(value), near_label=near)
@@ -585,7 +587,7 @@ async def mask_sensitive_before_screenshot(page: Page):
         document.querySelectorAll('input, textarea').forEach(el => {
             const blob = (el.name + ' ' + el.id + ' ' + (el.placeholder||'')).toLowerCase();
             if (sensitive.test(blob) && el.value) {
-                el.value = '••••••';
+                el.value = '??????';
             }
         });
     }
@@ -665,8 +667,13 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
 
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=False, slow_mo=150)
-            page = await browser.new_page()
+            browser = await p.chromium.launch(headless=False, slow_mo=120)
+            context = await browser.new_context(
+                viewport={"width": 1366, "height": 900},
+                locale="en-CA",
+                timezone_id="America/Toronto",
+            )
+            page = await context.new_page()
 
             try:
                 await page.goto(record.quote_url, timeout=NAV_TIMEOUT_MS, wait_until="domcontentloaded")
@@ -689,6 +696,14 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
                             pass
                         await page.wait_for_timeout(1500)
 
+                hook = get_hook(record.registry_id)
+                if hook and hook.on_entry:
+                    try:
+                        await hook.on_entry(page, record, applicant)
+                        await page.wait_for_timeout(1000)
+                    except Exception:
+                        pass
+
                 for step in range(MAX_STEPS):
                     page_text = await safe_inner_text(page)
                     check_page_text(page_text)
@@ -700,8 +715,15 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
                         mapping = await map_fields_with_claude(fields, applicant)
                         await fill_mapped_fields(page, mapping, fields, applicant)
                         did_something = True
-                    elif await try_custom_dropdown(page, applicant.province):
-                        did_something = True
+                    else:
+                        if hook and hook.on_empty_fields:
+                            try:
+                                if await hook.on_empty_fields(page, record, applicant):
+                                    did_something = True
+                            except Exception:
+                                pass
+                        if not did_something and await try_custom_dropdown(page, applicant.province):
+                            did_something = True
 
                     if await run_custom_widget_fallbacks(page, applicant, record, step):
                         did_something = True
@@ -732,7 +754,6 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
                 final_text = await safe_inner_text(page)
                 check_page_text(final_text)
 
-                premium = _extract_premium(final_text)
                 await mask_sensitive_before_screenshot(page)
                 final_shot = EVIDENCE_DIR / f"{record.registry_id}_final_{_ts()}.png"
                 await page.screenshot(path=str(final_shot))
@@ -740,13 +761,7 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
                 result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
                 result.source_url = page.url
 
-                if premium:
-                    result.annual_premium = premium
-                    result.status = Status.QUOTED_NON_COMPARABLE
-                    result.next_action = "Verify coverage assumptions match benchmark before marking quoted_comparable."
-                else:
-                    result.status = Status.UNRESOLVED
-                    result.next_action = "No premium detected on final page reached — review evidence manually."
+                result = normalize_quote_result(result, final_text, applicant)
 
             except asyncio.CancelledError:
                 raise
@@ -781,23 +796,6 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
 
     _log(record, result)
     return result
-
-
-def _extract_premium(text: str):
-    """Rough premium detector: looks for $X,XXX near 'annual', 'premium',
-    'per year', 'total'. Tune once you see a real results page's wording."""
-    patterns = [
-        r"(?:annual premium|total premium|per year|/year|annually)[^\$]{0,30}\$\s?([\d,]+\.?\d*)",
-        r"\$\s?([\d,]+\.?\d*)\s?(?:/year|per year|annually)",
-    ]
-    for pat in patterns:
-        m = re.search(pat, text, re.IGNORECASE)
-        if m:
-            try:
-                return float(m.group(1).replace(",", ""))
-            except ValueError:
-                continue
-    return None
 
 
 def _ts() -> str:

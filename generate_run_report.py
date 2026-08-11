@@ -42,8 +42,8 @@ def generate():
         lines.append(f"- **{k.replace('_', ' ').title()}**: {v}")
 
     lines.append("\n## Coverage ledger\n")
-    lines.append("| Route | Channel | Status | Annual Premium | Confidence | Evidence Timestamp |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| Route | Channel | Status | Annual Premium | Benchmark | Confidence | Evidence Timestamp |")
+    lines.append("|---|---|---|---|---|---|---|")
     for r in results:
         r = redact_for_storage(r)
         reg = registry.get(r.get("registry_id", ""), {})
@@ -52,6 +52,7 @@ def generate():
             f"| {reg.get('distribution_type', '—')} "
             f"| {r.get('status', '—')} "
             f"| {r.get('annual_premium', '—')} "
+            f"| {r.get('matches_benchmark', '—')} "
             f"| {r.get('confidence', '—')} "
             f"| {r.get('evidence_timestamp', '—')} |"
         )

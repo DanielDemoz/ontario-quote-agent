@@ -535,7 +535,9 @@ def render_results():
 
     display_cols = [
         "brand", "legal_underwriter", "insurer_group", "distribution_type",
-        "status", "annual_premium", "confidence", "evidence_timestamp", "failure_reason",
+        "status", "annual_premium", "monthly_premium", "matches_benchmark",
+        "confidence", "coverage_notes", "quote_or_reference_id",
+        "evidence_timestamp", "failure_reason",
     ]
     st.markdown("#### Full comparison table")
     st.dataframe(

@@ -46,6 +46,22 @@ the legal underwriter name actually returned by a broker/aggregator
 panel against the registry to catch previously-unknown duplicates
 discovered live. That cross-check is listed as a next step.
 
+**Extended registry catalog**
+`build_registry.py` generates `registry/full_registry.json` (~69
+Appendix A-style entities). Use `python run_registry.py --scope full
+--live-only` to attempt every route with a public quote URL.
+
+**Premium extraction and comparability**
+`normalizer.py` centralizes premium parsing and Section 6 benchmark
+checks, with unit tests in `tests/test_normalizer.py`. Patterns should
+still be validated against each insurer's actual results-page wording.
+
+**Site hooks and voice callbacks**
+`site_hooks.py` adds per-route SPA/combobox navigation (Sonnet province
+modal, CAA/ThinkInsure CTAs). `voice_agent.py` generates RIBO-aware
+callback scripts for phone-first routes; optional Twilio via `TWILIO_*`
+env vars. This complements `voice_input.py` (mic dictation in the UI).
+
 **Form-field mapping**
 The Claude-based field mapper is a best-effort layer, not a guarantee.
 It is deliberately conservative (defaults to `null`/no-fill on

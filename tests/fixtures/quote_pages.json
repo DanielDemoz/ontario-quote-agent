@@ -1,0 +1,14 @@
+[
+  {
+    "name": "belairdirect_style",
+    "text": "Your car insurance quote\nVehicle: 2019 Honda Civic\nLiability $2,000,000\nDirect Compensation Property Damage\nCollision deductible $1,000\nComprehensive deductible $1,000\nOPCF 44R Family Protection\nEstimated annual premium: $2,156.00\nQuote reference: QT-441029"
+  },
+  {
+    "name": "sonnet_style",
+    "text": "Summary\nThird Party Liability: $2 million\nDCPD included\nCollision: $1,000 deductible\nComprehensive: $1,000 deductible\nFamily Protection (OPCF 44R): Yes\nTotal price per year $1,892.47"
+  },
+  {
+    "name": "partial_coverage",
+    "text": "Your monthly premium: $987/month\nLiability limit $1,000,000"
+  }
+]
