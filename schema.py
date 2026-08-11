@@ -8,7 +8,7 @@ field names.
 
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, List, Optional
 from datetime import datetime
 
 
@@ -57,15 +57,11 @@ class Confidence(str, Enum):
     LOW = "low"        # estimate or unresolved coverage diff
 
 
-# Fields where an unconfirmed default value is dangerous - the brief
-# warns that inaccurate risk information can void a policy or count
-# as misrepresentation. These must be explicitly confirmed by the
-# user during intake, never silently assumed.
-RISK_RELEVANT_FIELDS = {
-    "accidents_last_6y",
-    "convictions_last_3y",
-    "current_insurer",
-    "years_continuously_insured",
+NEVER_DEFAULT_FIELDS = {
+    "accidents_last_6y", "convictions_last_3y", "current_insurer",
+    "years_continuously_insured", "licence_suspension_last_6y",
+    "insurer_cancellation_last_3y", "business_use_percentage",
+    "special_use", "unrepaired_damage", "vehicle_modifications",
 }
 
 
@@ -99,9 +95,7 @@ class MarketRecord:
 
 
 # ---------------------------------------------------------------------
-# Minimal intake schema (Section 5) — trimmed to what our chosen
-# routes actually need. Superset fields can be added later without
-# breaking anything since we read via .get().
+# Full canonical intake schema (Section 5)
 # ---------------------------------------------------------------------
 @dataclass
 class Applicant:
@@ -116,6 +110,16 @@ class Applicant:
     licence_province: str = "ON"
     licence_class: str = "G"
     date_first_licensed: str = ""
+
+    # Additional canonical fields per brief Section 5
+    gender: str = ""
+    marital_status: str = ""
+    licence_status: str = "valid"
+    licence_expiry: str = ""
+    date_first_licensed_g1: str = ""
+    date_first_licensed_g2: str = ""
+    date_first_licensed_g: str = ""
+    driver_training_completed: bool = False
 
     # Contact
     email: str = ""
@@ -137,13 +141,62 @@ class Applicant:
     annual_km: str = ""
     commute_km_one_way: str = ""
     primary_use: str = "pleasure"        # pleasure | commute | business
+    vehicle_trim: str = ""
+    vehicle_fuel_type: str = ""
+    purchase_lease_date: str = ""
+    registered_owner_same_as_driver: bool = True
+    lienholder_name: str = ""
+    business_use_percentage: str = "0"
+    days_commuting_per_week: str = "5"
+    carpool: bool = False
+    garaging_address_same_as_home: bool = True
+    unrepaired_damage: bool = False
+    vehicle_modifications: str = "none"
+    winter_tires: bool = False
+    anti_theft_device: bool = False
+    special_use: str = "none"
+    household_vehicle_count: str = "1"
 
     # History
     current_insurer: str = ""
     years_continuously_insured: str = ""
     accidents_last_6y: str = "none"
     convictions_last_3y: str = "none"
-    confirmed_risk_fields: bool = False
+    licence_suspension_last_6y: str = "none"
+    insurer_cancellation_last_3y: str = "none"
+
+    # Employment
+    occupation: str = ""
+    employer: str = ""
+    industry: str = ""
+    years_with_employer: str = ""
+
+    # Address history
+    previous_address: str = ""
+    previous_address_years: str = ""
+    residence_type: str = ""
+    residence_owned_or_rented: str = "owned"
+    has_mortgage: bool = False
+    has_tenant_insurance: bool = False
+
+    # Vehicle detail
+    vehicle_colour: str = ""
+    vehicle_current_value: str = ""
+    financing_company: str = ""
+    leasing_company: str = ""
+    financing_length_months: str = ""
+
+    # Business use detail
+    is_self_employed: bool = False
+    business_type: str = ""
+    business_kilometres: str = "0"
+
+    # Student/young driver
+    is_student: bool = False
+    school_name: str = ""
+
+    # Household
+    other_drivers_count: str = "0"
 
     # Coverage benchmark (Section 6 — suggested demo benchmark)
     effective_date: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
@@ -153,6 +206,30 @@ class Applicant:
     comprehensive_deductible: str = "1000"
     opcf_44r: bool = True
     telematics_opt_in: bool = False
+
+    # Telematics consent (separate from the opt-in decision)
+    telematics_data_consent: bool = False
+
+    # Discount eligibility flags
+    has_multi_policy: bool = False
+    is_good_student: bool = False
+    is_mature_driver: bool = False
+    has_professional_association: bool = False
+    has_alumni_discount_eligibility: bool = False
+    has_employer_discount_eligibility: bool = False
+
+    field_confidence: Dict[str, str] = field(default_factory=dict)
+    accidents_detail: List[dict] = field(default_factory=list)
+    convictions_detail: List[dict] = field(default_factory=list)
+
+    def get_confidence(self, field_name: str) -> str:
+        return self.field_confidence.get(field_name, "unknown")
+
+    def mark_verified(self, field_name: str):
+        self.field_confidence[field_name] = "verified"
+
+    def mark_default(self, field_name: str):
+        self.field_confidence[field_name] = "default"
 
     def is_hypothetical(self) -> bool:
         return self.mode == "estimate_only"

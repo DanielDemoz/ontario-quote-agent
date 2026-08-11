@@ -8,6 +8,7 @@ import asyncio
 import importlib
 import json
 import subprocess
+from dataclasses import fields
 from datetime import date
 from pathlib import Path
 
@@ -16,7 +17,7 @@ import streamlit as st
 
 from formatting_utils import normalize_postal_code, sanitize_display_text
 from guardrails import validate_applicant_for_mode
-from intake_writer import load_existing_applicant, stamp_consent, write_intake_config
+from intake_writer import applicant_from_dict, load_existing_applicant, stamp_consent, write_applicant
 from run_registry import run_all
 from schema import Applicant
 from ui_theme import (
@@ -100,7 +101,7 @@ def _defaults() -> dict:
         "years_continuously_insured": "0",
         "accidents_last_6y": "",
         "convictions_last_3y": "",
-        "confirmed_risk_fields": False,
+        "field_confidence": {},
         "effective_date": date.today().isoformat(),
         "liability_limit": "2000000",
         "dcpd_included": True,
@@ -209,11 +210,9 @@ def _build_payload(live: bool, consent: bool) -> dict:
         "primary_use": v.get("primary_use", "commute"),
         "current_insurer": v.get("current_insurer", "").strip(),
         "years_continuously_insured": v.get("years_continuously_insured", "").strip(),
-        "accidents_last_6y": v.get("accidents_last_6y", "").strip(),
-        "convictions_last_3y": v.get("convictions_last_3y", "").strip(),
-        "confirmed_risk_fields": bool(
-            v.get("accidents_last_6y", "").strip() and v.get("convictions_last_3y", "").strip()
-        ),
+        "accidents_last_6y": v.get("accidents_last_6y", "").strip() or "none",
+        "convictions_last_3y": v.get("convictions_last_3y", "").strip() or "none",
+        "field_confidence": v.get("field_confidence", {}),
         "effective_date": v.get("effective_date", date.today().isoformat()).strip() or date.today().isoformat(),
         "liability_limit": v.get("liability_limit", "2000000"),
         "dcpd_included": True,
@@ -225,42 +224,21 @@ def _build_payload(live: bool, consent: bool) -> dict:
 
 
 def _applicant_from_payload(payload: dict) -> Applicant:
-    return Applicant(
-        mode=payload["mode"],
-        consent_timestamp=payload["consent_timestamp"] or None,
-        legal_name=payload["legal_name"],
-        date_of_birth=payload["date_of_birth"],
-        licence_number=payload["licence_number"],
-        licence_class=payload["licence_class"],
-        date_first_licensed=payload["date_first_licensed"],
-        email=payload["email"],
-        phone=payload["phone"],
-        province=payload["province"],
-        street=payload["street"],
-        city=payload["city"],
-        postal_code=payload["postal_code"],
-        residence_start_date=payload["residence_start_date"],
-        vin=payload["vin"],
-        model_year=payload["model_year"],
-        make=payload["make"],
-        model=payload["model"],
-        ownership=payload["ownership"],
-        annual_km=payload["annual_km"],
-        commute_km_one_way=payload["commute_km_one_way"],
-        primary_use=payload["primary_use"],
-        current_insurer=payload["current_insurer"],
-        years_continuously_insured=payload["years_continuously_insured"],
-        accidents_last_6y=payload["accidents_last_6y"],
-        convictions_last_3y=payload["convictions_last_3y"],
-        confirmed_risk_fields=payload.get("confirmed_risk_fields", False),
-        effective_date=payload["effective_date"],
-        liability_limit=payload["liability_limit"],
-        dcpd_included=payload["dcpd_included"],
-        collision_deductible=payload["collision_deductible"],
-        comprehensive_deductible=payload["comprehensive_deductible"],
-        opcf_44r=payload["opcf_44r"],
-        telematics_opt_in=payload["telematics_opt_in"],
-    )
+    applicant = applicant_from_dict(payload)
+    verified = set()
+    for key, val in payload.items():
+        if key in ("field_confidence", "accidents_detail", "convictions_detail"):
+            continue
+        if val not in (None, "") or isinstance(val, bool):
+            verified.add(key)
+    for f in fields(Applicant):
+        if f.name in ("field_confidence", "accidents_detail", "convictions_detail"):
+            continue
+        if f.name in verified:
+            applicant.mark_verified(f.name)
+        else:
+            applicant.mark_default(f.name)
+    return applicant
 
 
 # ---------------------------------------------------------------------------
@@ -457,10 +435,11 @@ def render_intake():
             try:
                 applicant = _applicant_from_payload(payload)
                 validate_applicant_for_mode(applicant)
-                path = write_intake_config(payload)
+                path = write_applicant(applicant, source="Ontario All-Quote Agent UI")
                 import intake_config
                 importlib.reload(intake_config)
                 st.session_state.intake_values = payload
+                st.session_state.intake_values["field_confidence"] = applicant.field_confidence
                 st.success(f"Profile saved. Mode: **{applicant.mode}**. File: `{path.name}`")
             except Exception as exc:
                 st.error(f"Could not save: {exc}")

@@ -29,12 +29,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import asdict
 
-from formatting_utils import normalize_postal_code
+from formatting_utils import postal_code_variants
 
 from playwright.async_api import async_playwright, Page
 import anthropic
 
-from schema import MarketRecord, QuoteResult, Status, Applicant, RISK_RELEVANT_FIELDS
+from schema import MarketRecord, QuoteResult, Status, Applicant, NEVER_DEFAULT_FIELDS
 from guardrails import check_page_text, GuardrailStop, redact_for_storage
 from normalizer import normalize_quote_result
 from site_hooks import get_hook
@@ -50,17 +50,112 @@ NAV_TIMEOUT_MS = 20000
 client = anthropic.Anthropic()
 
 
-class RiskFieldUnconfirmedError(Exception):
-    """Raised when a form asks a risk-relevant question (accidents,
-    convictions, insurance history) that the applicant profile has
-    not explicitly confirmed. Never guess on these - stop the route
-    instead."""
+class FieldUnconfirmedError(Exception):
+    """Raised when a form asks for a field the applicant profile
+    cannot safely answer - never touched, or only at an unconfirmed
+    default for a field where that's not acceptable. Never guess."""
     pass
+
+
+def should_fill_field(applicant: Applicant, field_name: str) -> bool:
+    confidence = applicant.get_confidence(field_name)
+    if confidence == "verified":
+        return True
+    if confidence == "default":
+        return field_name not in NEVER_DEFAULT_FIELDS
+    return False
 
 # Field names we NEVER auto-fill even if Claude maps them ? these must
 # stop the flow and go to manual_handoff instead. Second layer of
 # protection on top of guardrails.check_page_text().
 NEVER_AUTOFILL = {"licence_number_confirm", "signature", "payment_card", "cvv"}
+
+CHAT_WIDGET_SELECTORS = [
+    '[id*="intercom"]', '[class*="intercom"]',
+    '[id*="drift"]', '[class*="drift"]',
+    '[id*="zendesk"]', '[class*="zendesk"]',
+    '[id*="tawk"]', '[class*="tawk"]',
+    '[id*="crisp"]', '[class*="crisp"]',
+    '[class*="chat-widget"]', '[class*="chat-bubble"]',
+]
+CHAT_WIDGET_SELECTOR_JS = ", ".join(CHAT_WIDGET_SELECTORS)
+
+
+async def dismiss_cookie_banner(page: Page) -> bool:
+    accept_texts = [
+        "accept all", "accept all cookies", "allow all", "allow all cookies",
+        "i agree", "agree", "got it", "accept cookies", "accept",
+    ]
+    clicked = await page.evaluate(f"""
+    () => {{
+        const targets = {accept_texts!r};
+        const els = [...document.querySelectorAll('button, a, div[role="button"]')];
+        for (const el of els) {{
+            if (el.offsetParent === null) continue;
+            const txt = (el.innerText || '').trim().toLowerCase();
+            if (targets.includes(txt)) {{
+                const r = el.getBoundingClientRect();
+                return {{x: r.x + r.width/2, y: r.y + r.height/2}};
+            }}
+        }}
+        return null;
+    }}
+    """)
+    if clicked:
+        await page.mouse.click(clicked["x"], clicked["y"])
+        await page.wait_for_timeout(500)
+        return True
+    return False
+
+
+async def dismiss_unexpected_popup(page: Page) -> bool:
+    dismiss_texts = ["no thanks", "skip", "maybe later", "close", "not now", "dismiss"]
+    result = await page.evaluate(f"""
+    () => {{
+        const targets = {dismiss_texts!r};
+        const closeIconSelectors = ['[aria-label="close" i]', '[aria-label="dismiss" i]', '.modal-close', '.popup-close'];
+        for (const sel of closeIconSelectors) {{
+            const el = document.querySelector(sel);
+            if (el && el.offsetParent !== null) {{
+                const r = el.getBoundingClientRect();
+                return {{x: r.x + r.width/2, y: r.y + r.height/2}};
+            }}
+        }}
+        const els = [...document.querySelectorAll('button, a')];
+        for (const el of els) {{
+            if (el.offsetParent === null) continue;
+            const txt = (el.innerText || '').trim().toLowerCase();
+            if (targets.includes(txt)) {{
+                const r = el.getBoundingClientRect();
+                return {{x: r.x + r.width/2, y: r.y + r.height/2}};
+            }}
+        }}
+        return null;
+    }}
+    """)
+    if result:
+        await page.mouse.click(result["x"], result["y"])
+        await page.wait_for_timeout(400)
+        return True
+    return False
+
+
+async def fill_postal_code(page: Page, selector: str, raw_value: str) -> bool:
+    for variant in postal_code_variants(raw_value):
+        try:
+            await page.fill(selector, variant)
+            await page.wait_for_timeout(300)
+            has_error = await page.evaluate("""
+            () => {
+                const text = document.body.innerText.toLowerCase();
+                return text.includes('invalid postal code') || text.includes('enter a valid postal code');
+            }
+            """)
+            if not has_error:
+                return True
+        except Exception:
+            continue
+    return False
 
 
 async def safe_inner_text(page: Page, timeout_ms: int = 20000) -> str:
@@ -121,20 +216,23 @@ async def extract_visible_fields(page: Page) -> list[dict]:
 
 async def find_continue_button(page: Page) -> str | None:
     """Best-effort search for a next/continue/get-quote button."""
-    candidate = await page.evaluate("""
-    () => {
+    candidate = await page.evaluate(f"""
+    () => {{
+        const chatSels = {CHAT_WIDGET_SELECTOR_JS!r};
         const texts = ['continue', 'next', 'get quote', 'get my quote', 'see my quote',
                         'get my rate', 'submit', 'proceed', 'get started',
                         'confirm', 'accept', 'agree', 'ok', 'got it'];
         const buttons = [...document.querySelectorAll('button, input[type=submit], a.button, a.btn')];
-        for (const b of buttons) {
+        for (const b of buttons) {{
+            if (b.closest(chatSels)) continue;
             const t = (b.innerText || b.value || '').trim().toLowerCase();
-            if (texts.some(x => t.includes(x))) {
-                return b.id ? `#${b.id}` : (b.className ? `.${b.className.split(' ')[0]}` : null);
-            }
-        }
+            if (t.includes('chat with')) continue;
+            if (texts.some(x => t.includes(x))) {{
+                return b.id ? `#${{b.id}}` : (b.className ? `.${{b.className.split(' ')[0]}}` : null);
+            }}
+        }}
         return null;
-    }
+    }}
     """)
     return candidate
 
@@ -155,10 +253,13 @@ async def find_homepage_cta(page: Page) -> str | None:
                       "get your price", "get started", "get my quote"]
     candidate = await page.evaluate(f"""
     () => {{
+        const chatSels = {CHAT_WIDGET_SELECTOR_JS!r};
         const targets = {exact_targets!r};
         const els = [...document.querySelectorAll('button, a, div[role="button"]')];
         for (const el of els) {{
+            if (el.closest(chatSels)) continue;
             const txt = (el.innerText || '').trim().toLowerCase();
+            if (txt.includes('chat with')) continue;
             if (targets.includes(txt) && el.offsetParent !== null) {{
                 const r = el.getBoundingClientRect();
                 return {{x: r.x + r.width / 2, y: r.y + r.height / 2}};
@@ -174,11 +275,14 @@ async def find_dropdown_trigger(page: Page, near_label: str = "") -> dict | None
     """Find a custom dropdown trigger element using multiple signals,
     not just literal 'Select' text. Checks ARIA roles, common class
     name patterns, and placeholder-style text together."""
-    return await page.evaluate("""
-    (nearLabel) => {
-        const looksLikeDropdown = (el) => {
+    return await page.evaluate(f"""
+    (nearLabel) => {{
+        const chatSels = {CHAT_WIDGET_SELECTOR_JS!r};
+        const looksLikeDropdown = (el) => {{
             if (el.offsetParent === null) return false;
+            if (el.closest(chatSels)) return false;
             const txt = (el.innerText || '').trim().toLowerCase();
+            if (txt.includes('chat with')) return false;
             const role = el.getAttribute('role') || '';
             const ariaHaspopup = el.getAttribute('aria-haspopup') || '';
             const cls = (el.className || '').toString().toLowerCase();
@@ -188,16 +292,18 @@ async def find_dropdown_trigger(page: Page, near_label: str = "") -> dict | None
                 cls.includes('dropdown') ||
                 cls.includes('select') ||
                 cls.includes('combobox') ||
-                cls.includes('listbox') ||
+                cls.includes('mui-select') ||
+                cls.includes('react-select') ||
+                cls.includes('ant-select') ||
+                el.getAttribute('aria-autocomplete') === 'list' ||
                 txt === 'select' ||
-                txt.startsWith('select') ||
                 (txt === '' && !!el.querySelector('svg, .chevron, .arrow'))
             );
-        };
+        }};
 
-        if (nearLabel) {
+        if (nearLabel) {{
             const labelEls = [...document.querySelectorAll('label, span, div, p, h1, h2, h3, h4')];
-            for (const lbl of labelEls) {
+            for (const lbl of labelEls) {{
                 const lt = (lbl.innerText || '').trim().toLowerCase();
                 if (lt !== nearLabel.toLowerCase() && !lt.startsWith(nearLabel.toLowerCase())) continue;
                 if (lbl.offsetParent === null) continue;
@@ -205,30 +311,30 @@ async def find_dropdown_trigger(page: Page, near_label: str = "") -> dict | None
                 if (!container) continue;
                 const local = [...container.querySelectorAll('div, button, span, [role="combobox"], [role="button"]')];
                 const matches = local.filter(looksLikeDropdown);
-                if (matches.length) {
+                if (matches.length) {{
                     const el = matches[0];
                     const r = el.getBoundingClientRect();
-                    return {x: r.x + r.width / 2, y: r.y + r.height / 2};
-                }
-            }
-        }
+                    return {{x: r.x + r.width / 2, y: r.y + r.height / 2}};
+                }}
+            }}
+        }}
 
         const candidates = [...document.querySelectorAll(
             'div, button, span, [role="combobox"], [role="button"]'
         )];
-        const matches = candidates.filter(el => {
+        const matches = candidates.filter(el => {{
             if (!looksLikeDropdown(el)) return false;
-            if (nearLabel) {
+            if (nearLabel) {{
                 const parentText = (el.closest('div,section,fieldset')?.innerText || '').toLowerCase();
                 return parentText.includes(nearLabel.toLowerCase());
-            }
+            }}
             return true;
-        });
+        }});
         if (matches.length === 0) return null;
         const el = matches[matches.length - 1];
         const r = el.getBoundingClientRect();
-        return {x: r.x + r.width / 2, y: r.y + r.height / 2};
-    }
+        return {{x: r.x + r.width / 2, y: r.y + r.height / 2}};
+    }}
     """, near_label)
 
 
@@ -557,25 +663,21 @@ async def fill_mapped_fields(page: Page, mapping: dict, fields: list[dict], appl
         if not attr or attr in NEVER_AUTOFILL or selector not in field_by_selector:
             continue
 
-        if attr in RISK_RELEVANT_FIELDS and not applicant_dict.get("confirmed_risk_fields", False):
-            raise RiskFieldUnconfirmedError(
-                f"Form asks for '{attr}' but this was never explicitly "
-                f"confirmed by the user during intake. Refusing to guess."
+        if not should_fill_field(applicant, attr):
+            raise FieldUnconfirmedError(
+                f"Form asks for '{attr}' but this field is not confirmed "
+                f"(confidence: {applicant.get_confidence(attr)}). Refusing to guess."
             )
 
         value = applicant_dict.get(attr)
         if value in (None, ""):
             continue
-        if attr == "postal_code" and value:
-            value = normalize_postal_code(value)
         f = field_by_selector[selector]
         try:
             if f["tag"] == "select":
                 try:
                     await page.select_option(selector, label=str(value))
                 except Exception:
-                    # Not a real native <select>, or the option label didn't match ?
-                    # fall back to custom-dropdown handling instead of crashing.
                     near = {"model_year": "year", "make": "make", "province": ""}.get(attr, "")
                     await try_custom_dropdown(page, str(value), near_label=near)
             elif f["type"] in ("checkbox", "radio"):
@@ -586,7 +688,10 @@ async def fill_mapped_fields(page: Page, mapping: dict, fields: list[dict], appl
                     handled = await try_address_autocomplete(page, selector, str(value))
                     if handled:
                         continue
-                await page.fill(selector, str(value))
+                if attr == "postal_code" and value:
+                    await fill_postal_code(page, selector, str(value))
+                else:
+                    await page.fill(selector, str(value))
         except Exception:
             # Non-fatal: some fields resist automated fill (custom widgets,
             # date pickers). Log and move on rather than crashing the route.
@@ -692,6 +797,7 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
 
             try:
                 await page.goto(record.quote_url, timeout=NAV_TIMEOUT_MS, wait_until="domcontentloaded")
+                await dismiss_cookie_banner(page)
                 try:
                     await page.wait_for_load_state("networkidle", timeout=8000)
                 except Exception:
@@ -725,13 +831,19 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
 
                     fields = await extract_visible_fields(page)
                     did_something = False
+                    mapping: dict = {}
 
                     if fields:
                         mapping = await map_fields_with_claude(fields, applicant)
-                        await fill_mapped_fields(page, mapping, fields, applicant)
-                        did_something = True
+                        if mapping:
+                            await fill_mapped_fields(page, mapping, fields, applicant)
+                            did_something = True
+                        elif await dismiss_unexpected_popup(page):
+                            did_something = True
                     else:
-                        if hook and hook.on_empty_fields:
+                        if await dismiss_unexpected_popup(page):
+                            did_something = True
+                        elif hook and hook.on_empty_fields:
                             try:
                                 if await hook.on_empty_fields(page, record, applicant):
                                     did_something = True
@@ -793,18 +905,15 @@ async def run_route(record: MarketRecord, applicant: Applicant) -> QuoteResult:
                     result.evidence_artifact_path = str(block_shot)
                 except Exception:
                     pass
-            except RiskFieldUnconfirmedError as e:
+            except FieldUnconfirmedError as e:
                 result.status = Status.MANUAL_HANDOFF
                 result.failure_reason = str(e)
-                result.next_action = (
-                    "Re-run interactive_intake.py and explicitly confirm accident/"
-                    "conviction/insurance history, then retry this route."
-                )
+                result.next_action = "Re-run interactive_intake.py and explicitly confirm this field, then retry."
                 result.evidence_timestamp = datetime.now(timezone.utc).isoformat()
                 result.source_url = page.url if page else record.quote_url
                 try:
                     await mask_sensitive_before_screenshot(page)
-                    handoff_shot = EVIDENCE_DIR / f"{record.registry_id}_risk_unconfirmed_{_ts()}.png"
+                    handoff_shot = EVIDENCE_DIR / f"{record.registry_id}_field_unconfirmed_{_ts()}.png"
                     await page.screenshot(path=str(handoff_shot))
                     result.evidence_artifact_path = str(handoff_shot)
                 except Exception:

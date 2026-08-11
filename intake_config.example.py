@@ -1,43 +1,51 @@
 """
-Example intake profile — copy to intake_config.py and customize.
-
-  cp intake_config.example.py intake_config.py
-
-Default mode is estimate_only (no real licence/name).
+EXAMPLE intake profile with fake data, showing the structure. This
+file IS committed to git — never put real information here.
 """
 
 from schema import Applicant
 
 
 def build_applicant() -> Applicant:
-    return Applicant(
+    a = Applicant(
         mode="estimate_only",
-        consent_timestamp=None,
-        legal_name="",
-        date_of_birth="",
+        consent_timestamp="",
+        legal_name="Jordan Example",
+        date_of_birth="1990-01-01",
         licence_number="",
         licence_province="ON",
         licence_class="G",
-        province="Ontario",
-        email="quote-demo@example.com",
+        date_first_licensed="2008-01-01",
+        email="jordan.example@example.com",
         phone="",
-        street="",
+        province="Ontario",
+        street="123 Example Street",
         city="Toronto",
-        postal_code="M5V 3A8",
-        model_year="2019",
-        make="Honda",
-        model="Civic",
+        postal_code="M4B 2E5",
+        residence_start_date="2020-01-01",
+        vin="",
+        model_year="2020",
+        make="Toyota",
+        model="Corolla",
         ownership="owned",
         annual_km="12000",
-        primary_use="pleasure",
-        current_insurer="",
+        commute_km_one_way="10",
+        primary_use="commute",
+        current_insurer="Example Insurance Co",
         years_continuously_insured="5",
         accidents_last_6y="none",
         convictions_last_3y="none",
-        confirmed_risk_fields=False,
         liability_limit="2000000",
         dcpd_included=True,
         collision_deductible="1000",
         comprehensive_deductible="1000",
         opcf_44r=True,
+        telematics_opt_in=False,
     )
+    a.field_confidence = {
+        "legal_name": "verified",
+        "accidents_last_6y": "verified",
+        "convictions_last_3y": "verified",
+        "liability_limit": "default",
+    }
+    return a
