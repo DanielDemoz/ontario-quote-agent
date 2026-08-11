@@ -1,5 +1,5 @@
 """
-Ontario All-Quote Agent — professional Streamlit web UI.
+Binder — Ontario auto insurance evidence dossier (Streamlit UI).
 
 Run: streamlit run app.py
 """
@@ -20,10 +20,11 @@ from intake_writer import load_existing_applicant, stamp_consent, write_intake_c
 from run_registry import run_all
 from schema import Applicant
 from ui_theme import (
-    hero,
+    binder_hero,
     info_box,
     inject_theme,
     privacy_box,
+    render_stamp_ledger,
     section_close,
     section_open,
     status_badge,
@@ -38,8 +39,8 @@ REGISTRY_PATH = ROOT / "registry" / "seed_registry.json"
 REPORT_PATH = ROOT / "results" / "run_report.md"
 
 st.set_page_config(
-    page_title="Ontario All-Quote Agent",
-    page_icon="🛡️",
+    page_title="Binder",
+    page_icon="📁",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -261,9 +262,21 @@ def _applicant_from_payload(payload: dict) -> Applicant:
 # Sidebar
 # ---------------------------------------------------------------------------
 
+def _current_mode() -> str:
+    existing = load_existing_applicant()
+    if existing:
+        return existing.get("mode", "estimate_only")
+    if "intake_values" in st.session_state:
+        return st.session_state.intake_values.get("mode", "estimate_only")
+    return "estimate_only"
+
+
 def render_sidebar():
-    st.sidebar.markdown('<p class="sidebar-brand">Ontario All-Quote Agent</p>', unsafe_allow_html=True)
-    st.sidebar.caption("Personal insurance shopping assistant · local data only")
+    st.sidebar.markdown('<p class="sidebar-brand">Binder</p>', unsafe_allow_html=True)
+    st.sidebar.markdown(
+        '<p class="sidebar-sub">Ontario Auto Insurance Case File</p>',
+        unsafe_allow_html=True,
+    )
 
     existing = load_existing_applicant()
     if existing:
@@ -516,10 +529,15 @@ def render_results():
         filtered = filtered[filtered["attempted"]]
     filtered = filtered.sort_values(by=sort_col, na_position="last")
 
+    st.markdown("#### Case ledger — stamped outcomes")
+    ledger_rows = filtered.to_dict("records")
+    st.markdown(render_stamp_ledger(ledger_rows), unsafe_allow_html=True)
+
     display_cols = [
         "brand", "legal_underwriter", "insurer_group", "distribution_type",
         "status", "annual_premium", "confidence", "evidence_timestamp", "failure_reason",
     ]
+    st.markdown("#### Full comparison table")
     st.dataframe(
         filtered[[c for c in display_cols if c in filtered.columns]],
         use_container_width=True,
@@ -529,7 +547,10 @@ def render_results():
     st.markdown("#### Evidence detail")
     for _, row in filtered.iterrows():
         badge = status_badge(row["status"])
-        with st.expander(f"{row.get('brand', row['registry_id'])}  ·  {row['status']}", expanded=False):
+        with st.expander(
+            f"{row.get('brand', row['registry_id'])}  ·  {row['status'].replace('_', ' ')}",
+            expanded=False,
+        ):
             st.markdown(badge, unsafe_allow_html=True)
             st.markdown(f"**Source URL**  \n{row.get('source_url') or '—'}")
             st.markdown(f"**Evidence timestamp**  \n{row.get('evidence_timestamp') or '—'}")
@@ -615,17 +636,10 @@ def render_run():
 def main():
     inject_theme()
     render_sidebar()
-
-    hero(
-        "Ontario All-Quote Agent",
-        "One intake. Every reachable rate. Evidence for every result. "
-        "Compare Ontario auto insurance routes across direct writers, brokers, "
-        "aggregators, and affinity programs — safely and honestly.",
-        badges=["Estimate or live mode", "Guardrails enforced", "Local data only"],
-    )
+    binder_hero(_current_mode())
 
     tab_intake, tab_results, tab_registry, tab_run = st.tabs(
-        ["📝  Intake", "📊  Results", "🗺️  Market registry", "▶️  Run agent"]
+        ["Intake", "Results", "Registry", "Run agent"]
     )
     with tab_intake:
         render_intake()
