@@ -14,11 +14,10 @@ def binder_hero(mode: str):
     st.markdown(
         f"""
         <div class="binder-hero">
-            <div class="case-number">CASE FILE — ONTARIO AUTO INSURANCE — MODE: {mode.upper()}</div>
+            <div class="case-number">CASE FILE — ONTARIO AUTO INSURANCE — {mode.upper()}</div>
             <h1>Binder</h1>
             <p style="font-family:'IBM Plex Sans',sans-serif; max-width:600px;">
                 One intake. Every reachable rate. Evidence for every result.
-                Guardrails enforced — nothing bound automatically. Local data only.
             </p>
         </div>
         """,
@@ -82,11 +81,11 @@ def render_stamp_ledger(rows: list[dict]) -> str:
     """HTML table: brand + underwriter + stamp for quick visual scan."""
     body = []
     for row in rows:
-        brand = row.get("brand", row.get("registry_id", "—"))
-        underwriter = row.get("legal_underwriter", "—") or "—"
+        brand = row.get("brand", row.get("registry_id", "n/a"))
+        underwriter = row.get("legal_underwriter", "n/a") or "n/a"
         status = row.get("status", "unresolved")
         premium = row.get("annual_premium")
-        premium_cell = f"${premium:,.0f}" if premium else "—"
+        premium_cell = f"${premium:,.0f}" if premium else "n/a"
         body.append(
             f"<tr>"
             f'<td class="route-name">{brand}</td>'

@@ -146,7 +146,7 @@ def _text_field(
 ):
     """Text input with optional dictation column."""
     vals = st.session_state.intake_values
-    voice = _voice_enabled() and not disabled
+    voice = _voice_enabled() and speech_recognition_available() and not disabled
     sensitive_voice = voice and sensitive
 
     if voice:
@@ -166,7 +166,7 @@ def _text_field(
         )
         vals[field_key] = value
         if sensitive_voice:
-            st.caption("Sensitive field — please type rather than dictate.")
+            st.caption("Sensitive field. Please type rather than dictate.")
 
     if voice and c_mic is not None and not sensitive:
         with c_mic:
@@ -287,16 +287,11 @@ def render_sidebar():
             f"{'Live profile on disk (gitignored)' if mode == 'live' else 'Estimate-only profile'}"
         )
     else:
-        st.sidebar.warning("No saved profile yet — complete Intake first.")
+        st.sidebar.warning("No saved profile yet. Complete Intake first.")
 
     st.sidebar.divider()
     st.sidebar.markdown("**Navigation**")
-    st.sidebar.markdown(
-        "- **Intake** — enter your profile  \n"
-        "- **Results** — compare route outcomes  \n"
-        "- **Registry** — market map  \n"
-        "- **Run agent** — execute quote routes"
-    )
+    st.sidebar.markdown("Intake\n\nResults\n\nRegistry\n\nRun agent")
     if st.sidebar.button("Reload dashboard", use_container_width=True):
         st.rerun()
 
@@ -311,27 +306,24 @@ def render_intake():
 
     section_open(
         "Your profile",
-        "Enter information once. Saved locally to intake_config.py (gitignored, never committed).",
+        "Enter your details once. They stay on this device.",
     )
 
     # Input mode
     st.markdown("**How would you like to enter your answers?**")
-    modes = ["Type your answers", "Speak your answers (microphone)"]
-    if not speech_recognition_available():
-        modes = ["Type your answers"]
-        st.caption("Voice mode requires: `pip install SpeechRecognition pyaudio`")
-
     st.session_state.input_mode = st.radio(
         "Input method",
-        modes,
+        ["Type your answers", "Speak your answers (microphone)"],
         horizontal=True,
         label_visibility="collapsed",
     )
 
-    if _voice_enabled():
+    if _voice_enabled() and not speech_recognition_available():
+        st.caption("Voice input is not available in this environment.")
+    elif _voice_enabled():
         warn_box(
             "<strong>Voice privacy notice:</strong> spoken answers are sent to Google's "
-            "speech recognition service for transcription — this is not purely local. "
+            "speech recognition service for transcription. This is not purely local. "
             "For licence numbers, addresses, and VIN, use the keyboard. "
             "Sensitive fields disable the microphone automatically."
         )
@@ -347,7 +339,7 @@ def render_intake():
     st.divider()
 
     live = st.toggle(
-        "Live mode — submit my real information to quote routes",
+        "Live mode: submit my real information to quote routes",
         value=st.session_state.live_mode,
         help="Off keeps estimate-only mode (safe default).",
     )
@@ -505,7 +497,7 @@ def render_results():
     c2.metric("Discovery seed (not attempted)", len(seed_only))
     c3.metric("Total registry", len(registry_list))
 
-    st.markdown("#### Live-tested routes — real evidence")
+    st.markdown("#### Live-tested routes: real evidence")
     st.caption(
         "Routes with an evidence timestamp, screenshot path, or documented "
         "rationale when no live path exists."
@@ -527,7 +519,7 @@ def render_results():
             hide_index=True,
         )
 
-        st.markdown("##### Evidence detail — live-tested")
+        st.markdown("##### Evidence detail (live-tested)")
         for entry in live_tested:
             badge = status_badge(entry.get("status", ""))
             with st.expander(
@@ -537,13 +529,13 @@ def render_results():
             ):
                 st.markdown(badge, unsafe_allow_html=True)
                 st.markdown(f"**Evidence**  \n`{format_evidence_link(entry)}`")
-                st.markdown(f"**Source URL**  \n{entry.get('source_url') or '—'}")
-                st.markdown(f"**Evidence timestamp**  \n{entry.get('evidence_timestamp') or '—'}")
+                st.markdown(f"**Source URL**  \n{entry.get('source_url') or 'n/a'}")
+                st.markdown(f"**Evidence timestamp**  \n{entry.get('evidence_timestamp') or 'n/a'}")
                 artifact = _resolve_artifact(entry.get("evidence_artifact_path", "") or entry.get("evidence_url", ""))
                 if artifact:
                     st.image(str(artifact), caption="Redacted evidence screenshot")
                 elif entry.get("evidence_artifact_path") or entry.get("evidence_url"):
-                    st.caption("Screenshot not found locally — path recorded in report.")
+                    st.caption("Screenshot not found locally. Path recorded in report.")
                 reason = entry.get("failure_reason") or entry.get("next_action")
                 if reason:
                     st.markdown(f"**Outcome notes**  \n{reason}")
@@ -551,11 +543,11 @@ def render_results():
         st.info("No live-tested routes with evidence yet.")
 
     with st.expander(
-        f"Discovery-stage seed entries — not yet attempted ({len(seed_only)})",
+        f"Discovery-stage seed entries (not yet attempted) ({len(seed_only)})",
         expanded=False,
     ):
         st.caption(
-            "Appendix A market-mapping leads. No live attempt — excluded from "
+            "Appendix A market-mapping leads. No live attempt. Excluded from "
             "evidence-backed completion counts."
         )
         if seed_only:
@@ -579,7 +571,10 @@ def render_results():
 # ---------------------------------------------------------------------------
 
 def render_registry():
-    section_open("Market registry", "All Appendix A insurer groups — direct, aggregator, broker, affinity, mutual, and residual routes.")
+    section_open(
+        "Market registry",
+        "All Appendix A insurer groups: direct, aggregator, broker, affinity, mutual, and residual routes.",
+    )
     with open(REGISTRY_PATH, encoding="utf-8") as f:
         records = json.load(f)
     df = pd.DataFrame(records)
@@ -596,12 +591,14 @@ def render_registry():
 # ---------------------------------------------------------------------------
 
 def render_run():
-    section_open("Execute quote routes", "Runs Playwright against each registry route using your saved profile.")
+    section_open(
+        "Execute quote routes",
+        "Attempts every route in your registry and records what actually happens.",
+    )
 
-    info_box(
-        "A visible Chromium window opens for each route. "
-        "Guardrails stop at CAPTCHA, application declarations, and payment — "
-        "nothing is bound automatically."
+    st.caption(
+        "Opens a live browser for each route. Stops safely at any CAPTCHA, "
+        "declaration, or payment step."
     )
 
     try:
@@ -617,7 +614,7 @@ def render_run():
     c1, c2 = st.columns(2)
     with c1:
         if st.button("Run all registry routes", type="primary", use_container_width=True):
-            with st.spinner("Running routes — watch the browser windows…"):
+            with st.spinner("Running routes. Watch the browser windows…"):
                 try:
                     asyncio.run(run_all())
                     st.success("Run complete. Open the **Results** tab.")
