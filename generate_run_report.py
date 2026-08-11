@@ -1,89 +1,132 @@
 """
-Generates the redacted run report required by Section 9 of the brief:
-"include the coverage ledger, comparisons, gaps, errors and timestamps
-without real licence numbers or other sensitive data."
+Generates the redacted run report required by Section 9 of the brief.
 
 Run after run_registry.py has produced results/results.json:
     python generate_run_report.py
 """
 
+from __future__ import annotations
+
 import json
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
 from guardrails import redact_for_storage
+from report_utils import (
+    REGISTRY_PATH,
+    RESULTS_PATH,
+    classify_routes,
+    format_evidence_link,
+    load_registry_and_results,
+)
 
-RESULTS_PATH = Path(__file__).parent / "results" / "results.json"
 METRICS_PATH = Path(__file__).parent / "results" / "metrics.json"
-REGISTRY_PATH = Path(__file__).parent / "registry" / "seed_registry.json"
 OUTPUT_PATH = Path(__file__).parent / "results" / "run_report.md"
 
 
-def generate():
+def generate_report() -> Path | None:
     if not RESULTS_PATH.exists():
         print("No results.json found — run run_registry.py first.")
-        return
+        return None
 
-    with open(RESULTS_PATH) as f:
-        results = json.load(f)
-    with open(REGISTRY_PATH) as f:
-        registry = {r["registry_id"]: r for r in json.load(f)}
+    registry, results = load_registry_and_results()
+    live_tested, seed_only = classify_routes(registry, results)
 
     metrics = {}
     if METRICS_PATH.exists():
-        with open(METRICS_PATH) as f:
+        with open(METRICS_PATH, encoding="utf-8") as f:
             metrics = json.load(f)
 
-    lines = []
-    lines.append("# Run Report — Ontario All-Quote Agent")
+    lines: list[str] = []
+    lines.append("# Run Report — Ontario All-Quote Agent (Binder)")
     lines.append(f"\nGenerated: {datetime.now(timezone.utc).isoformat()}")
-    lines.append("\n## Coverage metrics\n")
-    for k, v in metrics.items():
-        lines.append(f"- **{k.replace('_', ' ').title()}**: {v}")
 
-    lines.append("\n## Coverage ledger\n")
-    lines.append("| Route | Channel | Status | Annual Premium | Benchmark | Confidence | Evidence Timestamp |")
-    lines.append("|---|---|---|---|---|---|---|")
-    for r in results:
-        r = redact_for_storage(r)
-        reg = registry.get(r.get("registry_id", ""), {})
+    lines.append("\n## Summary")
+    lines.append(f"- **Live-tested routes with real evidence:** {len(live_tested)}")
+    lines.append(f"- **Discovery-stage seed entries (not yet attempted):** {len(seed_only)}")
+    lines.append(f"- **Total registry entries:** {len(registry)}")
+    if metrics:
+        lines.append(f"- **Evidence-backed completion (all results):** {metrics.get('market_completion', '—')}")
+
+    lines.append("\n## Live-Tested Routes — Real Evidence")
+    lines.append(
+        "\nEvery row below reflects an actual attempt against a live site, "
+        "with a timestamp and evidence artifact (or documented rationale when "
+        "no live path exists).\n"
+    )
+    lines.append("| Route | Channel | Status | Premium | Evidence | Timestamp |")
+    lines.append("|---|---|---|---|---|---|")
+    for entry in live_tested:
+        entry = redact_for_storage(entry)
+        premium = entry.get("annual_premium")
+        if premium is None and entry.get("monthly_premium") is not None:
+            premium = f"${entry['monthly_premium']}/mo"
         lines.append(
-            f"| {reg.get('brand_or_program', r.get('registry_id'))} "
-            f"| {reg.get('distribution_type', '—')} "
-            f"| {r.get('status', '—')} "
-            f"| {r.get('annual_premium', '—')} "
-            f"| {r.get('matches_benchmark', '—')} "
-            f"| {r.get('confidence', '—')} "
-            f"| {r.get('evidence_timestamp', '—')} |"
+            f"| {entry.get('brand_or_program', entry['registry_id'])} "
+            f"| {entry.get('distribution_type', '—')} "
+            f"| **{entry.get('status', '—')}** "
+            f"| {premium if premium is not None else '—'} "
+            f"| {format_evidence_link(entry)} "
+            f"| {entry.get('evidence_timestamp', '—')} |"
         )
 
-    lines.append("\n## Gaps and unresolved routes\n")
-    unresolved = [r for r in results if r.get("status") in
-                  ("unresolved", "unreachable", "blocked", "manual_handoff", "callback_required")]
+    lines.append("\n## Discovery-Stage Seed Entries — Not Yet Attempted")
+    lines.append(
+        "\nThese entries are seeded from the brief's Appendix A regulatory "
+        "dataset for market-mapping purposes. **No live attempt has been "
+        "made against any of these** — they are discovery leads, not "
+        "results, and are excluded from the evidence-backed completion "
+        "count above.\n"
+    )
+    lines.append("| Route | Channel | Legal Underwriter | Notes |")
+    lines.append("|---|---|---|---|")
+    for entry in seed_only:
+        notes = (entry.get("automation_notes", "") or "")[:150].replace("|", "/")
+        lines.append(
+            f"| {entry.get('brand_or_program', entry['registry_id'])} "
+            f"| {entry.get('distribution_type', '—')} "
+            f"| {entry.get('legal_underwriter', '—')} "
+            f"| {notes} |"
+        )
+
+    lines.append("\n## Gaps and unresolved (live-tested only)\n")
+    unresolved = [
+        e for e in live_tested
+        if e.get("status") in (
+            "unresolved", "unreachable", "blocked", "manual_handoff", "callback_required"
+        )
+    ]
     if unresolved:
-        for r in unresolved:
-            r = redact_for_storage(r)
-            reg = registry.get(r.get("registry_id", ""), {})
-            reason = r.get("failure_reason") or r.get("next_action") or "no reason logged"
+        for entry in unresolved:
+            entry = redact_for_storage(entry)
+            reason = entry.get("failure_reason") or entry.get("next_action") or "no reason logged"
             lines.append(
-                f"- **{reg.get('brand_or_program', r.get('registry_id'))}**: "
-                f"{r.get('status')} — {reason}"
+                f"- **{entry.get('brand_or_program', entry['registry_id'])}**: "
+                f"{entry.get('status')} — {reason}"
             )
     else:
-        lines.append("None — all attempted routes reached a quoted or estimate outcome.")
+        lines.append("None — all live-tested routes reached a quoted or estimate outcome.")
 
     lines.append("\n## Errors\n")
-    errors = [r for r in results if r.get("status") == "unreachable"]
+    errors = [e for e in live_tested if e.get("status") == "unreachable"]
     if errors:
-        for r in errors:
-            r = redact_for_storage(r)
-            lines.append(f"- {r.get('registry_id')}: {r.get('failure_reason')}")
+        for entry in errors:
+            entry = redact_for_storage(entry)
+            lines.append(f"- {entry.get('registry_id')}: {entry.get('failure_reason')}")
     else:
         lines.append("No unhandled errors recorded.")
 
     OUTPUT_PATH.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Run report written to {OUTPUT_PATH}")
+    print(
+        f"Report regenerated: {len(live_tested)} live-tested, "
+        f"{len(seed_only)} seed-only -> {OUTPUT_PATH}"
+    )
+    return OUTPUT_PATH
+
+
+def generate():
+    return generate_report()
 
 
 if __name__ == "__main__":
-    generate()
+    generate_report()

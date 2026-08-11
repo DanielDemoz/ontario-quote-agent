@@ -24,13 +24,13 @@ from ui_theme import (
     info_box,
     inject_theme,
     privacy_box,
-    render_stamp_ledger,
     section_close,
     section_open,
     status_badge,
     warn_box,
 )
 from voice_input import listen_once, speech_recognition_available
+from report_utils import classify_routes, format_evidence_link, load_registry_and_results
 
 ROOT = Path(__file__).parent
 RESULTS_PATH = ROOT / "results" / "results.json"
@@ -483,10 +483,9 @@ def render_results():
         section_close()
         return
 
-    with open(RESULTS_PATH, encoding="utf-8") as f:
-        results = json.load(f)
-    with open(REGISTRY_PATH, encoding="utf-8") as f:
-        registry = {r["registry_id"]: r for r in json.load(f)}
+    registry_list, results = load_registry_and_results(results_path=RESULTS_PATH)
+    registry = {r["registry_id"]: r for r in registry_list}
+    live_tested, seed_only = classify_routes(registry_list, results)
 
     if METRICS_PATH.exists():
         with open(METRICS_PATH, encoding="utf-8") as f:
@@ -501,69 +500,76 @@ def render_results():
                 )
 
     st.markdown("<br>", unsafe_allow_html=True)
-    df = pd.DataFrame(results)
-    if df.empty:
-        st.info("No route results recorded yet.")
-        section_close()
-        return
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Live-tested (evidence)", len(live_tested))
+    c2.metric("Discovery seed (not attempted)", len(seed_only))
+    c3.metric("Total registry", len(registry_list))
 
-    df["brand"] = df["registry_id"].map(lambda rid: registry.get(rid, {}).get("brand_or_program", rid))
-    df["legal_underwriter"] = df["registry_id"].map(lambda rid: registry.get(rid, {}).get("legal_underwriter", ""))
-    df["insurer_group"] = df["registry_id"].map(lambda rid: registry.get(rid, {}).get("insurer_group", ""))
-    df["distribution_type"] = df["registry_id"].map(lambda rid: registry.get(rid, {}).get("distribution_type", ""))
-    df["attempted"] = df["evidence_timestamp"].fillna("").astype(str).str.len() > 0
-
-    c1, c2 = st.columns(2)
-    with c1:
-        status_filter = st.multiselect(
-            "Filter by status",
-            sorted(df["status"].unique()),
-            default=list(df["status"].unique()),
-        )
-    with c2:
-        sort_col = st.selectbox("Sort by", ["annual_premium", "status", "brand"], index=1)
-    show_not_attempted = st.checkbox("Include routes without evidence timestamps", value=True)
-
-    filtered = df[df["status"].isin(status_filter)]
-    if not show_not_attempted:
-        filtered = filtered[filtered["attempted"]]
-    filtered = filtered.sort_values(by=sort_col, na_position="last")
-
-    st.markdown("#### Case ledger — stamped outcomes")
-    ledger_rows = filtered.to_dict("records")
-    st.markdown(render_stamp_ledger(ledger_rows), unsafe_allow_html=True)
-
-    display_cols = [
-        "brand", "legal_underwriter", "insurer_group", "distribution_type",
-        "status", "annual_premium", "monthly_premium", "matches_benchmark",
-        "confidence", "coverage_notes", "quote_or_reference_id",
-        "evidence_timestamp", "failure_reason",
-    ]
-    st.markdown("#### Full comparison table")
-    st.dataframe(
-        filtered[[c for c in display_cols if c in filtered.columns]],
-        use_container_width=True,
-        hide_index=True,
+    st.markdown("#### Live-tested routes — real evidence")
+    st.caption(
+        "Routes with an evidence timestamp, screenshot path, or documented "
+        "rationale when no live path exists."
     )
 
-    st.markdown("#### Evidence detail")
-    for _, row in filtered.iterrows():
-        badge = status_badge(row["status"])
-        with st.expander(
-            f"{row.get('brand', row['registry_id'])}  ·  {row['status'].replace('_', ' ')}",
-            expanded=False,
-        ):
-            st.markdown(badge, unsafe_allow_html=True)
-            st.markdown(f"**Source URL**  \n{row.get('source_url') or '—'}")
-            st.markdown(f"**Evidence timestamp**  \n{row.get('evidence_timestamp') or '—'}")
-            artifact = _resolve_artifact(row.get("evidence_artifact_path", ""))
-            if artifact:
-                st.image(str(artifact), caption="Redacted evidence screenshot")
-            elif row.get("evidence_artifact_path"):
-                st.caption(f"Screenshot not found locally: `{row['evidence_artifact_path']}`")
-            reason = row.get("failure_reason") or row.get("next_action")
-            if reason:
-                st.markdown(f"**Outcome notes**  \n{reason}")
+    if live_tested:
+        live_df = pd.DataFrame(live_tested)
+        live_df["brand"] = live_df["registry_id"].map(
+            lambda rid: registry.get(rid, {}).get("brand_or_program", rid)
+        )
+        live_df["evidence"] = live_df.apply(format_evidence_link, axis=1)
+        live_display = [
+            "brand", "distribution_type", "status", "annual_premium",
+            "evidence", "evidence_timestamp", "failure_reason",
+        ]
+        st.dataframe(
+            live_df[[c for c in live_display if c in live_df.columns]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.markdown("##### Evidence detail — live-tested")
+        for entry in live_tested:
+            badge = status_badge(entry.get("status", ""))
+            with st.expander(
+                f"{entry.get('brand_or_program', entry['registry_id'])}  ·  "
+                f"{str(entry.get('status', '')).replace('_', ' ')}",
+                expanded=False,
+            ):
+                st.markdown(badge, unsafe_allow_html=True)
+                st.markdown(f"**Evidence**  \n`{format_evidence_link(entry)}`")
+                st.markdown(f"**Source URL**  \n{entry.get('source_url') or '—'}")
+                st.markdown(f"**Evidence timestamp**  \n{entry.get('evidence_timestamp') or '—'}")
+                artifact = _resolve_artifact(entry.get("evidence_artifact_path", "") or entry.get("evidence_url", ""))
+                if artifact:
+                    st.image(str(artifact), caption="Redacted evidence screenshot")
+                elif entry.get("evidence_artifact_path") or entry.get("evidence_url"):
+                    st.caption("Screenshot not found locally — path recorded in report.")
+                reason = entry.get("failure_reason") or entry.get("next_action")
+                if reason:
+                    st.markdown(f"**Outcome notes**  \n{reason}")
+    else:
+        st.info("No live-tested routes with evidence yet.")
+
+    with st.expander(
+        f"Discovery-stage seed entries — not yet attempted ({len(seed_only)})",
+        expanded=False,
+    ):
+        st.caption(
+            "Appendix A market-mapping leads. No live attempt — excluded from "
+            "evidence-backed completion counts."
+        )
+        if seed_only:
+            seed_df = pd.DataFrame(seed_only)
+            seed_display = [
+                "brand_or_program", "distribution_type", "legal_underwriter", "automation_notes",
+            ]
+            st.dataframe(
+                seed_df[[c for c in seed_display if c in seed_df.columns]],
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.info("All registry entries have live evidence.")
 
     section_close()
 
