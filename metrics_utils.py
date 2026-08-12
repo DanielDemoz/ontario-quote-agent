@@ -8,15 +8,22 @@ dashboard and report to show contradictory numbers on the same page.
 
 def is_evidence_backed(result: dict, registry_by_id: dict) -> bool:
     """A result counts as evidence-backed only if it has a real
-    evidence timestamp, OR it's a manual_handoff on a route with no
-    quote_url at all (the genuine 'no automatable path exists' case,
-    like Facility Association) — never just because the status
-    happens to be manual_handoff or callback_required."""
+    evidence timestamp, OR it's a manual_handoff whose registry notes
+    EXPLICITLY confirm no automatable path exists by design (the
+    Facility Association case) - never just because quote_url happens
+    to be empty, since that can also mean 'nobody has researched this
+    URL yet', which is a completely different, unverified situation."""
     if result.get("evidence_timestamp"):
         return True
     if result.get("status") == "manual_handoff":
         reg_entry = registry_by_id.get(result.get("registry_id"), {})
-        return not reg_entry.get("quote_url", "").strip()
+        notes = (reg_entry.get("automation_notes", "") or "").lower()
+        genuinely_no_path = (
+            "no automatable path" in notes
+            or ("no direct" in notes and "path exists" in notes)
+        )
+        never_attempted = "not yet attempted" in notes
+        return genuinely_no_path and not never_attempted
     return False
 
 
