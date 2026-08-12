@@ -43,29 +43,8 @@ def classify_routes(
     results: list[dict],
 ) -> tuple[list[dict], list[dict]]:
     """Return (live_tested, seed_only) merged registry+result entries."""
-    results_by_id = {r["registry_id"]: r for r in results}
-    live_tested: list[dict] = []
-    seed_only: list[dict] = []
-
-    for reg in registry:
-        rid = reg["registry_id"]
-        res = results_by_id.get(rid, {})
-        has_evidence = bool(res.get("evidence_timestamp")) or bool(reg.get("evidence_url"))
-        notes = reg.get("automation_notes", "") or ""
-        genuinely_no_path = _genuinely_no_path(notes)
-        never_attempted = _never_attempted(notes)
-
-        entry = {**reg, **res}
-        if has_evidence or (
-            reg.get("status") == "manual_handoff"
-            and genuinely_no_path
-            and not never_attempted
-        ):
-            live_tested.append(entry)
-        else:
-            seed_only.append(entry)
-
-    return live_tested, seed_only
+    from metrics_utils import split_live_tested_vs_seed
+    return split_live_tested_vs_seed(registry, results)
 
 
 def format_evidence_link(entry: dict) -> str:

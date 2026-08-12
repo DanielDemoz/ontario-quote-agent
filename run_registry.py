@@ -137,21 +137,25 @@ async def run_all(scope: str = "seed", live_only: bool = False, limit: int | Non
         json.dump(metrics, f, indent=2)
 
 
-def compute_metrics(registry: list[MarketRecord], results: list[dict]) -> dict:
-    verified_applicable = len(registry)
-    evidence_backed = sum(
-        1 for r in results
-        if r.get("evidence_timestamp") or r.get("status") in ("manual_handoff", "callback_required")
-    )
-    comparable = sum(1 for r in results if r.get("status") == "quoted_comparable")
+from metrics_utils import compute_metrics as _compute_metrics
 
-    return {
-        "verified_applicable_rate_sources": verified_applicable,
-        "results_produced": len(results),
-        "market_completion": round(evidence_backed / verified_applicable, 3) if verified_applicable else 0,
-        "comparable_quote_yield": round(comparable / verified_applicable, 3) if verified_applicable else 0,
-        "evidence_rate": round(evidence_backed / len(results), 3) if results else 0,
-    }
+
+def _registry_to_dicts(registry: list) -> list[dict]:
+    out = []
+    for r in registry:
+        if isinstance(r, dict):
+            out.append(r)
+            continue
+        d = asdict(r)
+        for k, v in list(d.items()):
+            if hasattr(v, "value"):
+                d[k] = v.value
+        out.append(d)
+    return out
+
+
+def compute_metrics(registry: list, results: list[dict]) -> dict:
+    return _compute_metrics(_registry_to_dicts(registry), results)
 
 
 def main():

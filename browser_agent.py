@@ -23,6 +23,7 @@ the time you have left today.
 """
 
 import asyncio
+import dataclasses
 import json
 import re
 from datetime import datetime, timezone
@@ -48,6 +49,32 @@ MAX_STEPS = 8          # bounded-attempt policy: don't loop forever on one route
 NAV_TIMEOUT_MS = 20000
 
 client = anthropic.Anthropic()
+
+BOOLEAN_FIELD_NAMES = {
+    f.name for f in dataclasses.fields(Applicant)
+    if f.type == bool or f.type == "bool"
+}
+
+BOOL_LABEL_OVERRIDES = {
+    "dcpd_included": "DCPD",
+    "opcf_44r": "family protection",
+    "telematics_opt_in": "telematics",
+    "telematics_data_consent": "telematics",
+    "driver_training_completed": "driver training",
+    "winter_tires": "winter tires",
+    "anti_theft_device": "anti theft",
+    "unrepaired_damage": "unrepaired damage",
+    "carpool": "carpool",
+    "is_student": "student",
+    "is_good_student": "good student",
+    "is_mature_driver": "mature driver",
+    "has_multi_policy": "multi policy",
+    "has_mortgage": "mortgage",
+    "has_tenant_insurance": "tenant insurance",
+    "registered_owner_same_as_driver": "registered owner",
+    "garaging_address_same_as_home": "garaging address",
+    "is_self_employed": "self employed",
+}
 
 
 class FieldUnconfirmedError(Exception):
@@ -614,6 +641,39 @@ async def try_address_autocomplete(page: Page, selector: str, address_text: str)
         return False
 
 
+async def try_native_radio_group(page: Page, name_attr: str, desired_yes: bool) -> bool:
+    """Handle a native radio button group (multiple <input type=radio>
+    sharing the same name attribute) by finding the specific option
+    whose label matches Yes/No, rather than using a single ambiguous
+    selector which fails when multiple radios share one name."""
+    target_text = "yes" if desired_yes else "no"
+    result = await page.evaluate("""
+    (nameAttr, targetText) => {
+        const radios = [...document.querySelectorAll(`input[type="radio"][name="${nameAttr}"]`)];
+        for (const r of radios) {
+            if (r.offsetParent === null) continue;
+            let label = '';
+            if (r.id) {
+                const lbl = document.querySelector(`label[for="${r.id}"]`);
+                if (lbl) label = lbl.innerText;
+            }
+            if (!label && r.closest('label')) label = r.closest('label').innerText;
+            if (!label) label = r.value || '';
+            if (label.trim().toLowerCase() === targetText) {
+                const rect = r.getBoundingClientRect();
+                return {x: rect.x + rect.width/2, y: rect.y + rect.height/2};
+            }
+        }
+        return null;
+    }
+    """, name_attr, target_text)
+    if result:
+        await page.mouse.click(result["x"], result["y"])
+        await page.wait_for_timeout(200)
+        return True
+    return False
+
+
 async def map_fields_with_claude(fields: list[dict], applicant: Applicant) -> dict:
     """Returns {selector: intake_attr_name or None}."""
     if not fields:
@@ -681,8 +741,25 @@ async def fill_mapped_fields(page: Page, mapping: dict, fields: list[dict], appl
                     near = {"model_year": "year", "make": "make", "province": ""}.get(attr, "")
                     await try_custom_dropdown(page, str(value), near_label=near)
             elif f["type"] in ("checkbox", "radio"):
-                if str(value).lower() in ("true", "1", "yes"):
-                    await page.check(selector)
+                desired = (
+                    bool(value) if isinstance(value, bool)
+                    else str(value).lower() in ("true", "1", "yes")
+                )
+                filled = False
+                if f["type"] == "radio" and f.get("name"):
+                    filled = await try_native_radio_group(page, f["name"], desired)
+                elif f["type"] == "checkbox":
+                    try:
+                        if desired:
+                            await page.check(selector)
+                        else:
+                            await page.uncheck(selector)
+                        filled = True
+                    except Exception:
+                        pass
+                if not filled and attr in BOOLEAN_FIELD_NAMES:
+                    label = BOOL_LABEL_OVERRIDES.get(attr, attr.replace("_", " "))
+                    await try_custom_checkbox(page, label, desired)
             else:
                 if attr == "street" and f["tag"] != "select":
                     handled = await try_address_autocomplete(page, selector, str(value))
@@ -730,26 +807,12 @@ async def run_custom_widget_fallbacks(
     else:
         _step_log(record.registry_id, step, "no date/start field matched")
 
-    if getattr(applicant, "dcpd_included", None):
-        if await try_custom_checkbox(page, "DCPD", True):
-            _step_log(record.registry_id, step, "DCPD checkbox handled")
+    for field_name in BOOLEAN_FIELD_NAMES:
+        label = BOOL_LABEL_OVERRIDES.get(field_name, field_name.replace("_", " "))
+        desired = bool(getattr(applicant, field_name, False))
+        if await try_custom_checkbox(page, label, desired):
+            _step_log(record.registry_id, step, f"boolean fallback handled ({field_name})")
             did_something = True
-        else:
-            _step_log(record.registry_id, step, "DCPD checkbox not found")
-
-    if getattr(applicant, "opcf_44r", None):
-        if await try_custom_checkbox(page, "family protection", True):
-            _step_log(record.registry_id, step, "family protection checkbox handled")
-            did_something = True
-        else:
-            _step_log(record.registry_id, step, "family protection checkbox not found")
-
-    if not getattr(applicant, "telematics_opt_in", False):
-        if await try_custom_checkbox(page, "telematics", False):
-            _step_log(record.registry_id, step, "telematics toggle handled (left off)")
-            did_something = True
-        else:
-            _step_log(record.registry_id, step, "telematics toggle not found")
 
     if await try_custom_dropdown(page, applicant.province):
         _step_log(record.registry_id, step, "custom dropdown handled (province)")

@@ -31,11 +31,11 @@ from ui_theme import (
     warn_box,
 )
 from voice_input import listen_once, speech_recognition_available
-from report_utils import classify_routes, format_evidence_link, load_registry_and_results
+from metrics_utils import compute_metrics, split_live_tested_vs_seed
+from report_utils import format_evidence_link, load_registry_and_results
 
 ROOT = Path(__file__).parent
 RESULTS_PATH = ROOT / "results" / "results.json"
-METRICS_PATH = ROOT / "results" / "metrics.json"
 REGISTRY_PATH = ROOT / "registry" / "seed_registry.json"
 REPORT_PATH = ROOT / "results" / "run_report.md"
 
@@ -470,19 +470,17 @@ def render_results():
 
     registry_list, results = load_registry_and_results(results_path=RESULTS_PATH)
     registry = {r["registry_id"]: r for r in registry_list}
-    live_tested, seed_only = classify_routes(registry_list, results)
+    metrics = compute_metrics(registry_list, results)
+    live_tested, seed_only = split_live_tested_vs_seed(registry_list, results)
 
-    if METRICS_PATH.exists():
-        with open(METRICS_PATH, encoding="utf-8") as f:
-            metrics = json.load(f)
-        cols = st.columns(len(metrics))
-        for col, (k, val) in zip(cols, metrics.items()):
-            with col:
-                st.markdown(
-                    f'<div class="metric-card"><div class="label">{k.replace("_", " ")}</div>'
-                    f'<div class="value">{val}</div></div>',
-                    unsafe_allow_html=True,
-                )
+    cols = st.columns(len(metrics))
+    for col, (k, val) in zip(cols, metrics.items()):
+        with col:
+            st.markdown(
+                f'<div class="metric-card"><div class="label">{k.replace("_", " ")}</div>'
+                f'<div class="value">{val}</div></div>',
+                unsafe_allow_html=True,
+            )
 
     st.markdown("<br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)

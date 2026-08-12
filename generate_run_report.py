@@ -13,10 +13,10 @@ from pathlib import Path
 
 from formatting_utils import sanitize_display_text
 from guardrails import redact_for_storage
+from metrics_utils import compute_metrics, split_live_tested_vs_seed
 from report_utils import (
     REGISTRY_PATH,
     RESULTS_PATH,
-    classify_routes,
     format_evidence_link,
     load_registry_and_results,
 )
@@ -31,12 +31,10 @@ def generate_report() -> Path | None:
         return None
 
     registry, results = load_registry_and_results()
-    live_tested, seed_only = classify_routes(registry, results)
+    metrics = compute_metrics(registry, results)
+    live_tested, seed_only = split_live_tested_vs_seed(registry, results)
 
-    metrics = {}
-    if METRICS_PATH.exists():
-        with open(METRICS_PATH, encoding="utf-8") as f:
-            metrics = json.load(f)
+    METRICS_PATH.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
 
     lines: list[str] = []
     lines.append("# Run Report: Ontario All-Quote Agent (Binder)")
@@ -46,8 +44,8 @@ def generate_report() -> Path | None:
     lines.append(f"- **Live-tested routes with real evidence:** {len(live_tested)}")
     lines.append(f"- **Discovery-stage seed entries (not yet attempted):** {len(seed_only)}")
     lines.append(f"- **Total registry entries:** {len(registry)}")
-    if metrics:
-        lines.append(f"- **Evidence-backed completion (all results):** {metrics.get('market_completion', 'n/a')}")
+    lines.append(f"- **Evidence-backed completion (all results):** {metrics.get('market_completion', 'n/a')}")
+    lines.append(f"- **Evidence rate:** {metrics.get('evidence_rate', 'n/a')}")
 
     lines.append("\n## Live-Tested Routes: Real Evidence")
     lines.append(
