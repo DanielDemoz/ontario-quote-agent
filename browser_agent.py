@@ -780,11 +780,11 @@ async def mask_sensitive_before_screenshot(page: Page):
     we capture evidence, regardless of whether we filled it ourselves."""
     await page.evaluate("""
     () => {
-        const sensitive = /licen[cs]e|vin|dob|birth|postal|address|phone|email|sin\\b/i;
+        const sensitive = /licen[cs]e|\\bvin\\b|dob|birth|postal|\\baddress\\b|\\bstreet\\b|phone|email|\\bsin\\b|\\bname\\b|employer|occupation|\\bindustry\\b|school|financ|lien|leas|colour|color|\\bvalue\\b|income/i;
         document.querySelectorAll('input, textarea').forEach(el => {
-            const blob = (el.name + ' ' + el.id + ' ' + (el.placeholder||'')).toLowerCase();
+            const blob = (el.name + ' ' + el.id + ' ' + (el.placeholder||'')).replace(/_/g, ' ').toLowerCase();
             if (sensitive.test(blob) && el.value) {
-                el.value = '??????';
+                el.value = '••••••';
             }
         });
     }

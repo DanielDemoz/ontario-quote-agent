@@ -15,10 +15,10 @@
     "requires_human": false,
     "automation_notes": "Direct online quote flow. URL is a hash-based SPA route (#/quoting/...). First page shows a province-select modal built as a custom (non-native) dropdown component, not a real <select> tag, which our field extractor and click-target logic could not reliably resolve within the hackathon build window. Evidence captured across multiple attempts shows the exact point of failure: the modal's dropdown could not be reliably selected via automated click targeting. Logged honestly as unresolved rather than fabricating a result. A production version would need site-specific selector work (e.g. inspecting the live DOM for the dropdown's actual component library / test-id attributes) rather than generic heuristics.",
     "status": "unresolved",
-    "evidence_url": "evidence/sonnet-direct-001_final_20260809T152908850252Z.png",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\sonnet-direct-001_final_20260812T161817018401Z.png",
     "source_citation": "Brief Appendix A: Definity group",
     "distinct_rate_source_id": "definity-sonnet",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:18:17.120493+00:00"
   },
   {
     "registry_id": "belairdirect-001",
@@ -36,10 +36,10 @@
     "requires_human": false,
     "automation_notes": "Direct online flow. Backup if Sonnet blocks automation. UPDATE: Deep-linking to the quote subdomain triggered an anti-direct-link redirect to the homepage. Agent detected the redirect and clicked the real homepage CTA (\"Car\") to enter the flow honestly, same as a human visitor would. Successfully reached the actual multi-step quote form (step 1 of 3, native vehicle year/make/model fields). Did not complete within the step budget - furthest progress of any route today.",
     "status": "unresolved",
-    "evidence_url": "evidence/belairdirect-001_final_20260809T160315728573Z.png",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\belairdirect-001_final_20260812T161844832576Z.png",
     "source_citation": "Brief Appendix A: Intact group",
     "distinct_rate_source_id": "intact-belairdirect",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:18:44.986785+00:00"
   },
   {
     "registry_id": "lowestrates-agg-001",
@@ -56,11 +56,11 @@
     "requires_membership": false,
     "requires_human": false,
     "automation_notes": "Named underwriters per brief: CAA, Coachman, Economical, Gore, Pafco, Pembridge, SGI, Travelers, Zenith. Must capture actual underwriter returned, not just brand. UPDATE: Site actively detects and blocks automated/headless browser traffic (\"Sorry, you have been blocked\" wall), consistent with common bot-detection services (Cloudflare/Akamai/PerimeterX-style). This is a genuine access-control block, not a code defect - logged honestly as blocked per the brief permitted terminal status \"access blocked by terms or CAPTCHA\".",
-    "status": "blocked",
-    "evidence_url": "evidence/lowestrates-agg-001_final_20260809T154144146884Z.png",
+    "status": "unresolved",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\lowestrates-agg-001_final_20260812T161927235887Z.png",
     "source_citation": "Brief Section 3, citation [9]",
     "distinct_rate_source_id": "agg-lowestrates",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:19:27.328102+00:00"
   },
   {
     "registry_id": "thinkinsure-broker-001",
@@ -77,11 +77,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "RIBO-licensed broker (Ontario and Alberta). UPDATE: Live run reached https://www.thinkinsure.ca/quotes/auto \u2014 a multi-field lead-capture intake (postal code, policy start date, full name, email, phone), not a self-serve instant premium. Footer discloses quotes are estimates only and final pricing requires registered broker phone completion. In estimate_only mode the agent correctly did not fabricate name/email/phone; attempting Continue surfaced field validation and a visible reCAPTCHA widget. No instant rate is offered on this path. Logged as callback_required with public phone route 1-855-550-5515; evidence: thinkinsure-broker-001_final_20260809T172145645048Z.png.",
-    "status": "callback_required",
+    "status": "unreachable",
     "evidence_url": "evidence/thinkinsure-broker-001_final_20260809T172145645048Z.png",
     "source_citation": "Brief Section 3, citation [6]",
     "distinct_rate_source_id": "broker-thinkinsure",
-    "last_verified_at": "2026-08-09T17:21:45Z"
+    "last_verified_at": "2026-08-12T16:23:29.333290+00:00"
   },
   {
     "registry_id": "caa-affinity-001",
@@ -98,11 +98,11 @@
     "requires_membership": true,
     "requires_human": false,
     "automation_notes": "CAA South Central Ontario affinity route. UPDATE: National URL https://www.caa.ca/insurance/car-insurance/ returns 404; live Ontario quote flow is at https://car-insurance.caasco.com/auto/intro (reachable via caasco.com/autoquote redirect). Agent reached real step-1 Vehicle Details screen (address combobox, policy effective date, eligibility attestations). No CAA membership number field on this first screen. Flow could not advance in estimate_only mode because garaging address is required and street/postal were intentionally left blank. Not affinity_restricted \u2014 membership was not the blocking factor on the screen reached. Evidence: caa-affinity-001_final_20260809T172309421847Z.png.",
-    "status": "unresolved",
-    "evidence_url": "evidence/caa-affinity-001_final_20260809T172309421847Z.png",
+    "status": "manual_handoff",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\caa-affinity-001_field_unconfirmed_20260812T162340262039Z.png",
     "source_citation": "Brief Appendix A: CAA group",
     "distinct_rate_source_id": "caa-direct",
-    "last_verified_at": "2026-08-09T17:23:09Z"
+    "last_verified_at": "2026-08-12T16:23:40.257767+00:00"
   },
   {
     "registry_id": "facility-residual-001",
@@ -123,7 +123,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: FA",
     "distinct_rate_source_id": "residual-facility",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:23:40.683675+00:00"
   },
   {
     "registry_id": "ratesca-agg-002",
@@ -141,10 +141,10 @@
     "requires_human": false,
     "automation_notes": "Broad broker engine B per brief Section 4. Describes insurer API and industry-rater connectivity. Not yet attempted live; treat returned legal underwriter separately from aggregator brand.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\ratesca-agg-002_final_20260812T162352595274Z.png",
     "source_citation": "Brief Section 3, citation [10]",
     "distinct_rate_source_id": "agg-ratesca",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:23:52.747890+00:00"
   },
   {
     "registry_id": "surex-broker-002",
@@ -162,10 +162,10 @@
     "requires_human": true,
     "automation_notes": "Broad licensed brokerage per brief Section 4. Compensation disclosure names Aviva, Intact, Jevco, Wawanesa, CAA, Coachman, Definity/Economical, Gore, Pafco, Pembridge, SGI, Travelers. Not yet attempted live.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\surex-broker-002_final_20260812T162402990442Z.png",
     "source_citation": "Brief Section 3, citation [11]",
     "distinct_rate_source_id": "broker-surex",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:24:03.063558+00:00"
   },
   {
     "registry_id": "onlia-broker-002",
@@ -183,10 +183,10 @@
     "requires_human": false,
     "automation_notes": "Digital brokerage with multiple carriers per brief Section 4. Capture actual returned underwriter, not brokerage brand. Not yet attempted live.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\onlia-broker-002_final_20260812T162437789505Z.png",
     "source_citation": "Brief Section 4",
     "distinct_rate_source_id": "broker-onlia",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:24:37.889914+00:00"
   },
   {
     "registry_id": "allstate-direct-002",
@@ -204,10 +204,10 @@
     "requires_human": false,
     "automation_notes": "Appendix A Allstate group. Legal entities: Allstate Insurance Company of Canada; Esurance Insurance Company of Canada; Pafco Insurance Company; Pembridge Insurance Company. Starting route: Allstate direct/agent. Pafco and Pembridge are broker/non-standard paths \u2014 separate registry entries. Not yet attempted live.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\allstate-direct-002_final_20260812T162454301768Z.png",
     "source_citation": "Brief Appendix A: Allstate group",
     "distinct_rate_source_id": "allstate-direct",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:24:54.438126+00:00"
   },
   {
     "registry_id": "pafco-broker-002",
@@ -228,7 +228,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Allstate group",
     "distinct_rate_source_id": "allstate-pafco",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:24:54.749198+00:00"
   },
   {
     "registry_id": "aviva-direct-002",
@@ -246,10 +246,10 @@
     "requires_human": false,
     "automation_notes": "Appendix A Aviva group. Legal entities: Aviva General Insurance Company; Aviva Insurance Company of Canada; S&Y Insurance Company; Scottish & York Insurance Co. Limited; Traders General Insurance Company. Starting route: Aviva Direct. Deduplicate legacy entities against broker/RBC returns when live. Not yet attempted live. Entry point has an embedded postal code field, not a separate quote-start page. Confirmed required fields upfront: driver name(s), DOB, licence class + G1/G2/G dates, driving history; vehicle year/make/model, owner details, purchase/lease date, use type. Hard limit: max 2 vehicles/2 drivers online. A language/province selection gate appears on entry \u2014 same pattern as Sonnet's province modal, handle with existing find_dropdown_trigger/find_homepage_cta logic. LIVE (2026-08-10): Stuck on language/province modal + cookie banner; postal-code field not reached.",
     "status": "unresolved",
-    "evidence_url": "evidence/aviva-direct-002_final_20260810T205245477223Z.png",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\aviva-direct-002_final_20260812T162509542144Z.png",
     "source_citation": "Brief Appendix A: Aviva group; citation [14]",
     "distinct_rate_source_id": "aviva-direct",
-    "last_verified_at": "2026-08-10T20:56:00Z"
+    "last_verified_at": "2026-08-12T16:25:09.696831+00:00"
   },
   {
     "registry_id": "rbc-affinity-002",
@@ -267,10 +267,10 @@
     "requires_human": false,
     "automation_notes": "Appendix A Aviva group \u2014 RBC affinity route with Aviva underwriting disclosure per brief. Capture returned legal underwriter on quote page. Not yet attempted live.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\rbc-affinity-002_final_20260812T162529397190Z.png",
     "source_citation": "Brief Appendix A: Aviva group; citation [15]",
     "distinct_rate_source_id": "aviva-rbc",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:25:29.491129+00:00"
   },
   {
     "registry_id": "cooperators-direct-002",
@@ -288,10 +288,10 @@
     "requires_human": false,
     "automation_notes": "Appendix A Co-op group. Legal entities: COSECO Insurance Company; CUMIS General Insurance Company; Co-operators General Insurance Company; The Sovereign General Insurance Company. Starting route: Co-operators web/agent. Affinity and specialty entities need validation. Not yet attempted live. Main cooperators.ca site is agent-network-first ('connect with a financial representative'), not a confirmed self-serve instant-quote flow. Prefer the separate Duuo (duuo-cooperators-001) entry for a genuine direct online attempt.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\cooperators-direct-002_final_20260812T162544552509Z.png",
     "source_citation": "Brief Appendix A: Co-op group",
     "distinct_rate_source_id": "coop-cooperators",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:25:44.646987+00:00"
   },
   {
     "registry_id": "duuo-cooperators-001",
@@ -309,10 +309,10 @@
     "requires_human": false,
     "automation_notes": "Confirmed live: Duuo offers real self-serve online auto insurance purchase in Ontario (explicitly listed as an eligible province), underwritten by Co-operators General Insurance Company. This is a genuinely direct digital flow, distinct from the parent cooperators.ca site which is agent-network-first. Not yet attempted live. LIVE (2026-08-10): Reached Duuo welcome SPA; stalled on Start your quote CTA.",
     "status": "unresolved",
-    "evidence_url": "evidence/duuo-cooperators-001_final_20260810T205229184544Z.png",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\duuo-cooperators-001_final_20260812T162603905742Z.png",
     "source_citation": "Verified live via duuo.ca/auto-insurance/ on reconnaissance pass",
     "distinct_rate_source_id": "coop-duuo",
-    "last_verified_at": "2026-08-10T20:56:00Z"
+    "last_verified_at": "2026-08-12T16:26:04.035986+00:00"
   },
   {
     "registry_id": "desjardins-direct-002",
@@ -330,10 +330,10 @@
     "requires_human": false,
     "automation_notes": "Appendix A Desjardins group. Legal entities: Certas Direct Insurance Company; Certas Home and Auto Insurance Company; The Personal Insurance Company. Desjardins web/agent route. The Personal is separate affinity entry. Not yet attempted live.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\desjardins-direct-002_final_20260812T162625841786Z.png",
     "source_citation": "Brief Appendix A: Desjardins group",
     "distinct_rate_source_id": "desjardins-certas",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:26:25.934501+00:00"
   },
   {
     "registry_id": "thepersonal-affinity-002",
@@ -351,10 +351,10 @@
     "requires_human": false,
     "automation_notes": "Appendix A Desjardins group \u2014 The Personal group/employer affinity route per brief citation [18]. Membership or group eligibility may restrict access. Not yet attempted live.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\thepersonal-affinity-002_final_20260812T162629627430Z.png",
     "source_citation": "Brief Appendix A: Desjardins group; citation [18]",
     "distinct_rate_source_id": "desjardins-personal",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:26:29.691552+00:00"
   },
   {
     "registry_id": "td-direct-002",
@@ -371,11 +371,11 @@
     "requires_membership": false,
     "requires_human": false,
     "automation_notes": "Appendix A TD group. Legal entities: Primmum Insurance Company; Security National Insurance Company; TD General Insurance Company. TD online, phone and affinity routes per brief. Not yet attempted live. Confirmed 3-step flow disclosed directly on the page: (1) Your vehicle, (2) Savings, (3) Driver details. Offers a VIN-prefill option as an alternative to manual vehicle entry \u2014 if VIN is available in the applicant profile, try the VIN path first as it may reduce the number of fields needed. Vehicle year field appears to be a genuine native HTML dropdown (explicit year list visible in page content), which is good news \u2014 try native select_option() before falling back to custom-dropdown handling. LIVE (2026-08-10): Reached step 1/3 vehicle year dropdown; browser closed before fill completed.",
-    "status": "unresolved",
+    "status": "unreachable",
     "evidence_url": "evidence/td-direct-002_step4_20260810T205619804284Z.png",
     "source_citation": "Brief Appendix A: TD group; citation [16]",
     "distinct_rate_source_id": "td-general",
-    "last_verified_at": "2026-08-10T20:56:00Z"
+    "last_verified_at": "2026-08-12T16:30:30.917522+00:00"
   },
   {
     "registry_id": "squareone-direct-002",
@@ -393,10 +393,10 @@
     "requires_human": false,
     "automation_notes": "Appendix A Zurich group. Square One direct for Ontario car per brief citation [8]. Specialty Zurich broker routes may differ \u2014 validate underwriter on returned quote. Not yet attempted live. Confirmed 4-step flow per live page content: (1) drivers, (2) vehicle, (3) limits/deductibles/coverage, (4) premium. Cookie-consent modal appears on entry, similar pattern to Sonnet's \u2014 handle via existing find_homepage_cta or a dedicated cookie-consent click. Legal underwriter confirmed as Zurich Insurance Company Ltd (Canadian Branch) for Ontario auto \u2014 matches existing registry insurer_group 'Zurich'. LIVE (2026-08-10): Guardrail stopped on cookie/legal page containing declaration before CONFIRM or CAR QUOTE; never entered quote flow.",
     "status": "manual_handoff",
-    "evidence_url": "evidence/squareone-direct-002_blocked_20260810T205206919255Z.png",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\squareone-direct-002_blocked_20260812T163035740020Z.png",
     "source_citation": "Brief Appendix A: Zurich group; citation [8]",
     "distinct_rate_source_id": "zurich-squareone",
-    "last_verified_at": "2026-08-10T20:56:00Z"
+    "last_verified_at": "2026-08-12T16:30:35.733775+00:00"
   },
   {
     "registry_id": "definity-broker-002",
@@ -417,7 +417,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Definity group",
     "distinct_rate_source_id": "definity-economical-broker",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:30:36.234153+00:00"
   },
   {
     "registry_id": "economical-broker-002",
@@ -438,7 +438,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Economical group",
     "distinct_rate_source_id": "economical-mutual-broker",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:30:36.235578+00:00"
   },
   {
     "registry_id": "intact-broker-002",
@@ -459,7 +459,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Intact group",
     "distinct_rate_source_id": "intact-broker",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:30:36.236883+00:00"
   },
   {
     "registry_id": "jevco-broker-002",
@@ -480,7 +480,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Intact group",
     "distinct_rate_source_id": "intact-jevco",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:30:36.238398+00:00"
   },
   {
     "registry_id": "echelon-broker-002",
@@ -501,7 +501,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: CAA group",
     "distinct_rate_source_id": "caa-echelon",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:30:36.240550+00:00"
   },
   {
     "registry_id": "wawanesa-direct-002",
@@ -519,10 +519,10 @@
     "requires_human": false,
     "automation_notes": "Appendix A Wawanesa group \u2014 broker route primary per brief; public web quote path seeded for discovery. Not yet attempted live.",
     "status": "unresolved",
-    "evidence_url": "",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\wawanesa-direct-002_final_20260812T163111236986Z.png",
     "source_citation": "Brief Appendix A: Wawanesa group",
     "distinct_rate_source_id": "wawanesa-mutual",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.347630+00:00"
   },
   {
     "registry_id": "gore-broker-002",
@@ -543,7 +543,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Gore group",
     "distinct_rate_source_id": "gore-mutual",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.689303+00:00"
   },
   {
     "registry_id": "travelers-broker-002",
@@ -564,7 +564,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Travelers group",
     "distinct_rate_source_id": "travelers-dominion",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.690314+00:00"
   },
   {
     "registry_id": "coachman-broker-002",
@@ -585,7 +585,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: SGI group",
     "distinct_rate_source_id": "sgi-coachman",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.692312+00:00"
   },
   {
     "registry_id": "sgi-broker-002",
@@ -606,7 +606,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: SGI group",
     "distinct_rate_source_id": "sgi-canada",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.692312+00:00"
   },
   {
     "registry_id": "northbridge-broker-002",
@@ -627,7 +627,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Northbridge group",
     "distinct_rate_source_id": "northbridge-general",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.693703+00:00"
   },
   {
     "registry_id": "zenith-broker-002",
@@ -648,7 +648,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Northbridge group",
     "distinct_rate_source_id": "northbridge-zenith",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.694711+00:00"
   },
   {
     "registry_id": "pembridge-broker-002",
@@ -669,7 +669,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Allstate group",
     "distinct_rate_source_id": "allstate-pembridge",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.695716+00:00"
   },
   {
     "registry_id": "beneva-broker-002",
@@ -690,7 +690,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Beneva group",
     "distinct_rate_source_id": "beneva-unica",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.696725+00:00"
   },
   {
     "registry_id": "optimum-broker-002",
@@ -711,7 +711,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Optimum group",
     "distinct_rate_source_id": "optimum-inc",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.697723+00:00"
   },
   {
     "registry_id": "portage-broker-002",
@@ -732,7 +732,7 @@
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Portage group",
     "distinct_rate_source_id": "portage-mutual",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:11.698723+00:00"
   },
   {
     "registry_id": "commonwell-mutual-002",
@@ -749,11 +749,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Commonwell group \u2014 mutual and broker/agent route. Validate Ontario PPA availability and territory. Not yet attempted live.",
-    "status": "manual_handoff",
-    "evidence_url": "",
+    "status": "unresolved",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\commonwell-mutual-002_final_20260812T163116935849Z.png",
     "source_citation": "Brief Appendix A: Commonwell group",
     "distinct_rate_source_id": "commonwell-mutual",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:17.214797+00:00"
   },
   {
     "registry_id": "heartland-mutual-002",
@@ -770,11 +770,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Heartland group \u2014 mutual/local agent or broker route. Not yet attempted live.",
-    "status": "manual_handoff",
-    "evidence_url": "",
+    "status": "unresolved",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\heartland-mutual-002_final_20260812T163124308473Z.png",
     "source_citation": "Brief Appendix A: Heartland group",
     "distinct_rate_source_id": "heartland-farm",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:24.727601+00:00"
   },
   {
     "registry_id": "peel-mutual-002",
@@ -791,11 +791,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Peel group \u2014 mutual/local agent or broker route. Not yet attempted live.",
-    "status": "manual_handoff",
-    "evidence_url": "",
+    "status": "unresolved",
+    "evidence_url": "C:\\Users\\asbda\\OneDrive\\Documents\\ontario-quote-agent\\evidence\\peel-mutual-002_final_20260812T163129140091Z.png",
     "source_citation": "Brief Appendix A: Peel group",
     "distinct_rate_source_id": "peel-mutual",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:29.275251+00:00"
   },
   {
     "registry_id": "fmre-mutual-002",
@@ -812,11 +812,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A FMRe group \u2014 Ontario Mutuals locator and specific mutual validation per brief citation [12]. Not yet attempted live.",
-    "status": "manual_handoff",
+    "status": "unreachable",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: FMRe group; citation [12]",
     "distinct_rate_source_id": "fmre-ontario-mutuals",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.096695+00:00"
   },
   {
     "registry_id": "aig-specialty-002",
@@ -833,11 +833,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A AIG group \u2014 specialty/commercial broker; validate PPA relevance for standard private-passenger profile. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: AIG group",
     "distinct_rate_source_id": "aig-canada",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.313281+00:00"
   },
   {
     "registry_id": "chubb-specialty-002",
@@ -854,11 +854,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Chubb group \u2014 high-net-worth or specialty broker route. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Chubb group",
     "distinct_rate_source_id": "chubb-canada",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.315488+00:00"
   },
   {
     "registry_id": "pure-specialty-002",
@@ -875,11 +875,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A PURE group \u2014 high-net-worth broker route. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: PURE group",
     "distinct_rate_source_id": "pure-insurance",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.316485+00:00"
   },
   {
     "registry_id": "continental-specialty-002",
@@ -896,11 +896,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Continental group \u2014 specialty/commercial broker; validate PPA relevance. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Continental group",
     "distinct_rate_source_id": "continental-casualty",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.317509+00:00"
   },
   {
     "registry_id": "hartford-specialty-002",
@@ -917,11 +917,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Hartford group \u2014 specialty/commercial broker; validate PPA relevance. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Hartford group",
     "distinct_rate_source_id": "hartford-fire",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.318508+00:00"
   },
   {
     "registry_id": "liberty-specialty-002",
@@ -938,11 +938,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Liberty group \u2014 specialty/commercial broker; validate PPA relevance. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Liberty group",
     "distinct_rate_source_id": "liberty-mutual",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.319510+00:00"
   },
   {
     "registry_id": "sompo-specialty-002",
@@ -959,11 +959,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Sompo group. Legal entities: Endurance Specialty Insurance Ltd.; Sompo Japan Insurance Inc. Specialty/commercial broker; validate PPA relevance. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Sompo group",
     "distinct_rate_source_id": "sompo-japan",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.320512+00:00"
   },
   {
     "registry_id": "tokio-specialty-002",
@@ -980,11 +980,11 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A Tokio group \u2014 specialty/commercial broker; validate PPA relevance. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: Tokio group",
     "distinct_rate_source_id": "tokio-marine",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.321512+00:00"
   },
   {
     "registry_id": "xl-specialty-002",
@@ -1001,10 +1001,10 @@
     "requires_membership": false,
     "requires_human": true,
     "automation_notes": "Appendix A XL group \u2014 specialty/commercial broker; validate PPA relevance. Not yet attempted live.",
-    "status": "specialty_only",
+    "status": "callback_required",
     "evidence_url": "",
     "source_citation": "Brief Appendix A: XL group",
     "distinct_rate_source_id": "xl-specialty",
-    "last_verified_at": null
+    "last_verified_at": "2026-08-12T16:31:32.322510+00:00"
   }
 ]

@@ -49,7 +49,7 @@ async def run_route_isolated(record: MarketRecord, applicant: Applicant) -> Quot
             evidence_timestamp=datetime.now(timezone.utc).isoformat(),
         )
     except Exception as e:
-        print(f"[{record.registry_id}] CRASHED: {type(e).__name__}: {e}")
+        print(f"[{record.registry_id}] CRASHED: {type(e).__name__}: {str(e).encode('ascii', 'replace').decode()}")
         return QuoteResult(
             registry_id=record.registry_id,
             distinct_rate_source_id=record.distinct_rate_source_id,
@@ -93,7 +93,21 @@ async def run_one(record: MarketRecord, applicant: Applicant, retry: bool = True
 
 
 async def run_all(scope: str = "seed", live_only: bool = False, limit: int | None = None):
-    registry = load_registry(scope)
+    if scope == "full":
+        if not FULL_PATH.exists():
+            from build_registry import main as build_main
+            import sys
+            sys.argv = ["build_registry.py", "--merge"]
+            build_main()
+        registry_path = FULL_PATH
+    else:
+        registry_path = SEED_PATH
+
+    with open(registry_path, encoding="utf-8") as f:
+        registry_raw = json.load(f)
+    registry = [MarketRecord(**r) for r in registry_raw]
+    registry_by_id = {r["registry_id"]: r for r in registry_raw}
+
     if live_only:
         registry = [r for r in registry if r.quote_url.strip()]
     if limit:
@@ -123,11 +137,23 @@ async def run_all(scope: str = "seed", live_only: bool = False, limit: int | Non
         seen_rate_sources.add(record.distinct_rate_source_id)
         print(f"[{record.registry_id}] -> {result.status}")
 
+        raw = registry_by_id.get(record.registry_id)
+        if raw:
+            ts = result.evidence_timestamp or datetime.now(timezone.utc).isoformat()
+            raw["last_verified_at"] = ts
+            status_val = result.status.value if isinstance(result.status, Status) else result.status
+            raw["status"] = status_val
+            if result.evidence_artifact_path:
+                raw["evidence_url"] = result.evidence_artifact_path
+
     RESULTS_PATH.parent.mkdir(exist_ok=True)
     with open(RESULTS_PATH, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, default=str)
 
-    metrics = compute_metrics(registry, results)
+    with open(registry_path, "w", encoding="utf-8") as f:
+        json.dump(registry_raw, f, indent=2)
+
+    metrics = compute_metrics(registry_raw, results)
     print("\n--- Coverage metrics ---")
     for k, v in metrics.items():
         print(f"{k}: {v}")

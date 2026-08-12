@@ -58,6 +58,24 @@ SOFT_SIGNALS = [
 _BLOCK_RE = re.compile("|".join(BLOCK_SIGNALS), re.IGNORECASE)
 _SOFT_RE = re.compile("|".join(SOFT_SIGNALS), re.IGNORECASE)
 
+SENSITIVE_FIELD_PATTERN = re.compile(
+    r"licen[cs]e|\bvin\b|dob|birth|postal|\baddress\b|\bstreet\b|"
+    r"phone|email|\bsin\b|\bname\b|employer|occupation|\bindustry\b|"
+    r"school|financ|lien|leas|colour|color|\bvalue\b|income",
+    re.IGNORECASE,
+)
+
+
+def is_sensitive_field(field_name: str) -> bool:
+    """True if this field name indicates sensitive data that must
+    never appear unredacted in a screenshot, log, or committed file.
+    Field names use underscores as word separators, but underscore is
+    a regex word character, so plain boundaries fail on names like
+    'legal_name' - normalize to spaces first so boundaries land
+    correctly."""
+    normalized = field_name.replace("_", " ")
+    return bool(SENSITIVE_FIELD_PATTERN.search(normalized))
+
 
 class GuardrailStop(Exception):
     """Raised when a hard-stop condition is detected. Caller must
@@ -118,12 +136,8 @@ def _looks_like_real_full_name(name: str) -> bool:
 def redact_for_storage(record: dict) -> dict:
     """Strip or mask sensitive fields before writing any evidence or
     log to disk. Call before every save."""
-    sensitive_keys = {
-        "licence_number", "vin", "date_of_birth", "street",
-        "postal_code", "phone", "email",
-    }
     redacted = dict(record)
-    for k in sensitive_keys:
-        if k in redacted and redacted[k]:
+    for k in list(redacted.keys()):
+        if is_sensitive_field(k) and redacted[k]:
             redacted[k] = "[REDACTED]"
     return redacted
