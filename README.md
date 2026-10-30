@@ -8,7 +8,7 @@ Ontario drivers must shop many disconnected quote channels manually; each site h
 
 ## Approach
 
-Built Binder—a Streamlit dashboard plus Playwright browser agent driven by Claude field mapping. Maintains a seed registry of 48 market routes, 22 of them live-tested (69 in the full registry), with guardrails that halt at CAPTCHA, declarations, or payment. Normalizes premiums for comparison, redacts PII before storage, and tracks confidence so the agent never submits unconfirmed answers to risk-relevant questions.
+Built Binder, a Streamlit dashboard plus Playwright browser agent driven by Claude field mapping. Maintains a seed registry of 48 market routes, 22 of them live-tested (69 in the full registry), with guardrails that halt at CAPTCHA, declarations, or payment. Normalizes premiums for comparison, redacts PII before storage, and tracks confidence so the agent never submits unconfirmed answers to risk-relevant questions.
 
 ## Results
 
@@ -45,10 +45,10 @@ streamlit run app.py
 
 Additional commands: `python run_registry.py`, `python -m pytest tests/ -q`
 
-Personal-use prototype only—not deployed publicly. Real intake data stays in gitignored `intake_config.py`.
+Personal-use prototype only, not deployed publicly. Real intake data stays in gitignored `intake_config.py`.
 
 ## Screenshot / demo
 
-Run locally at http://localhost:8501 — no public deployment by design (Ontario All-Quote Agent Challenge prototype).
+Run locally at http://localhost:8501, no public deployment by design (Ontario All-Quote Agent Challenge prototype).
 
 See `architecture_and_safety_note.md` and `results/run_report.md` for safety behavior and evidence format.
