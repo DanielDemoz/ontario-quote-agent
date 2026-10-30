@@ -8,13 +8,25 @@ Ontario drivers must shop many disconnected quote channels manually; each site h
 
 ## Approach
 
-Built Binder—a Streamlit dashboard plus Playwright browser agent driven by Claude field mapping. Maintains a seed registry of 48 live-tested routes (69 in full registry), with guardrails that halt at CAPTCHA, declarations, or payment. Normalizes premiums for comparison, redacts PII before storage, and tracks confidence so the agent never submits unconfirmed answers to risk-relevant questions.
+Built Binder—a Streamlit dashboard plus Playwright browser agent driven by Claude field mapping. Maintains a seed registry of 48 market routes, 22 of them live-tested (69 in the full registry), with guardrails that halt at CAPTCHA, declarations, or payment. Normalizes premiums for comparison, redacts PII before storage, and tracks confidence so the agent never submits unconfirmed answers to risk-relevant questions.
 
 ## Results
 
-- 48 catalogued market routes in `registry/seed_registry.json`; full Appendix A-style merge to ~69 entities
-- Evidence-backed outcomes per route: status, premium when available, timestamped screenshot, or explicit non-quote reason
-- Unit-tested premium normalizer (`tests/test_normalizer.py`) and shared coverage metrics via `metrics_utils.py`
+**Status:** a working agent that reaches real quote forms, but no comparable premium has been captured yet.
+
+- 48 market routes in `registry/seed_registry.json` (about 69 in the full registry). 22 were tried against live sites in August 2026, each with a timestamp and a screenshot or a written reason.
+- Outcomes across the 48: 18 manual handoff, 17 unresolved, 10 callback required, 2 unreachable, 1 blocked.
+- Premiums captured: 0. Most routes stopped at custom form widgets, callback requirements or bot checks. See `results/run_report.md` and `known_limitations.md`.
+- Unit-tested premium normalizer (`tests/test_normalizer.py`) and shared coverage metrics in `metrics_utils.py`.
+
+## Responsible AI, following the Reliable AI Adoption Framework
+
+1. **Business problem:** help one Ontario driver compare auto insurance quotes without filling in dozens of forms by hand.
+2. **Data readiness:** the driver's own intake profile. Personal fields are redacted before anything is stored, and none are in this repository.
+3. **Governance and risk:** the agent stops at CAPTCHAs, legal declarations and payment pages, and never answers a risk-relevant question it is not sure of. It acts only for the person whose details it holds.
+4. **Technology and tools:** Playwright drives the browser and Claude maps form fields. Every result keeps its evidence, so a person can check it.
+5. **People and adoption:** the driver reviews every result and finishes any quote by hand. A wrong answer on an insurance form can void a policy.
+6. **Outcomes and monitoring:** track how many routes reach a real premium, and re-test routes when insurers change their sites.
 
 ## Tech stack
 
